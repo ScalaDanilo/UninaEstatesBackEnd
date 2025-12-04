@@ -16,6 +16,6 @@ data class ImmagineEntity(
     val nome: String? = null,
     val formato: String? = null,
 
-    @Lob
+    @Column(name = "immagine", columnDefinition = "bytea")
     val immagine: ByteArray? = null
 )
