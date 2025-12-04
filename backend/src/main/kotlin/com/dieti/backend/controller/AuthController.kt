@@ -64,4 +64,43 @@ class AuthController(val utenteRepo: UtenteRepository) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore login: ${e.message}")
         }
     }
+
+    @PostMapping("/registra")
+    fun registraUtente(@RequestBody request: RegistrazioneRequest): ResponseEntity<Any> {
+        if (utenteRepo.findByEmail(request.email) != null) {
+            return ResponseEntity.badRequest().body("Email già registrata!")
+        }
+
+        val nuovoUtente = UtenteRegistratoEntity(
+            nome = request.nome,
+            cognome = request.cognome,
+            email = request.email,
+            password = request.password, // In produzione andrebbe criptata!
+            telefono = request.telefono
+        )
+
+        val salvato = utenteRepo.save(nuovoUtente)
+
+        return ResponseEntity.ok(UtenteResponse(
+            uuid = salvato.uuid.toString(),
+            nome = salvato.nome,
+            email = salvato.email
+        ))
+    }
+
+    @PostMapping("/login")
+    fun loginUtente(@RequestBody request: LoginRequest): ResponseEntity<Any> {
+        val utente = utenteRepo.findByEmail(request.email)
+
+        // Controllo semplice password (per progetto universitario)
+        if (utente != null && utente.password == request.password) {
+            return ResponseEntity.ok(UtenteResponse(
+                uuid = utente.uuid.toString(),
+                nome = utente.nome,
+                email = utente.email
+            ))
+        }
+
+        return ResponseEntity.status(401).body("Credenziali non valide")
+    }
 }
