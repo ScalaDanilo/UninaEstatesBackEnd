@@ -56,7 +56,7 @@ class AppuntamentoController(
             mapOf(
                 "data" to app.data.toString(),
                 "ora" to app.ora.toString(),
-                "immobile" to (app.immobile.titolo ?: "Immobile senza titolo"), // Campo titolo ipotetico
+                "immobile" to (app.immobile.tipologia +", "+ app.immobile.localita), // Campo titolo ipotetico ?: "Immobile senza titolo"), // Campo titolo ipotetico
                 "agente" to "${app.agente.nome} ${app.agente.cognome}"
             )
         }

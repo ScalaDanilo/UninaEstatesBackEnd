@@ -1,6 +1,9 @@
 package com.dieti.backend.controller
 
 import com.dieti.backend.dto.GoogleLoginRequest
+import com.dieti.backend.dto.LoginRequest
+import com.dieti.backend.dto.RegistrazioneRequest
+import com.dieti.backend.dto.UtenteResponse
 import com.dieti.backend.entity.UtenteRegistratoEntity
 import com.dieti.backend.repository.UtenteRepository
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
@@ -81,11 +84,13 @@ class AuthController(val utenteRepo: UtenteRepository) {
 
         val salvato = utenteRepo.save(nuovoUtente)
 
-        return ResponseEntity.ok(UtenteResponse(
-            uuid = salvato.uuid.toString(),
-            nome = salvato.nome,
-            email = salvato.email
-        ))
+        return ResponseEntity.ok(
+            UtenteResponse(
+                uuid = salvato.uuid.toString(),
+                nome = salvato.nome,
+                email = salvato.email
+            )
+        )
     }
 
     @PostMapping("/login")
