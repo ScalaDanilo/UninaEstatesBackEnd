@@ -7,5 +7,6 @@ import org.springframework.boot.runApplication
 class BackendApplication
 
 fun main(args: Array<String>) {
-	runApplication<BackendApplication>(*args)
+    println(">>> STARTER: L'APPLICAZIONE STA CERCANDO DI PARTIRE... <<<")
+    runApplication<BackendApplication>(*args)
 }

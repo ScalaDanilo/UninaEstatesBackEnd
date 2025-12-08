@@ -1,9 +1,6 @@
 package com.dieti.backend.controller
 
-import com.dieti.backend.dto.AuthResponse
-import com.dieti.backend.dto.GoogleLoginRequest
-import com.dieti.backend.dto.LoginRequest
-import com.dieti.backend.dto.RegisterRequest
+import com.dieti.backend.dto.*
 import com.dieti.backend.entity.UtenteRegistratoEntity
 import com.dieti.backend.repository.UtenteRepository
 import org.springframework.http.ResponseEntity
@@ -22,11 +19,10 @@ class AuthController(
     fun login(@RequestBody request: LoginRequest): ResponseEntity<Any> {
         val user = utenteRepository.findByEmail(request.email)
 
-        // Controllo password molto semplice (in prod usa BCrypt!)
         if (user != null && user.password == request.password) {
             return ResponseEntity.ok(
                 AuthResponse(
-                    token = UUID.randomUUID().toString(), // Token fittizio
+                    token = UUID.randomUUID().toString(),
                     userId = user.uuid!!,
                     nome = user.nome,
                     email = user.email,
@@ -48,7 +44,7 @@ class AuthController(
             nome = request.nome,
             cognome = request.cognome,
             email = request.email,
-            password = request.password, // Ricorda di hashare in futuro
+            password = request.password,
             telefono = request.telefono
         )
 
@@ -68,27 +64,26 @@ class AuthController(
     // 3. Login con Google
     @PostMapping("/google")
     fun googleLogin(@RequestBody request: GoogleLoginRequest): ResponseEntity<Any> {
-        // Qui dovresti verificare il token Google con le API di Google
-        // Per ora simuliamo: se l'email esiste, login. Se no, lo registriamo al volo.
-
         var user = utenteRepository.findByEmail(request.email)
 
         if (user == null) {
-            // Registrazione automatica da Google
             user = UtenteRegistratoEntity(
                 nome = request.firstName ?: "Utente",
                 cognome = request.lastName ?: "Google",
                 email = request.email,
-                password = null, // Password null per utenti social
+                password = "GOOGLE_USER_NO_PASSWORD",
                 telefono = null
             )
             utenteRepository.save(user)
         }
 
+        // FIX: Rimosso '!!' inutile dopo 'user'.
+        // Kotlin sa già che 'user' non è null qui.
+        // Manteniamo solo '!!' su 'uuid' perché quello è nullable nell'Entity.
         return ResponseEntity.ok(
             AuthResponse(
                 token = UUID.randomUUID().toString(),
-                userId = user!!.uuid!!,
+                userId = user.uuid!!,
                 nome = user.nome,
                 email = user.email,
                 ruolo = "UTENTE"

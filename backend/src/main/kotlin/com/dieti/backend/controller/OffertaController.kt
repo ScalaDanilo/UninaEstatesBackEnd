@@ -1,5 +1,6 @@
 package com.dieti.backend.controller
 
+import com.dieti.backend.dto.OffertaDTO
 import com.dieti.backend.dto.OffertaRequest
 import com.dieti.backend.entity.OffertaEntity
 import com.dieti.backend.repository.ImmobileRepository
@@ -11,46 +12,45 @@ import java.util.UUID
 
 @RestController
 @RequestMapping("/api/offerte")
+@CrossOrigin(origins = ["*"])
 class OffertaController(
-    val offertaRepo: OffertaRepository,
-    val utenteRepo: UtenteRepository,
-    val immobileRepo: ImmobileRepository
+    private val offertaRepository: OffertaRepository,
+    private val utenteRepository: UtenteRepository,
+    private val immobileRepository: ImmobileRepository
 ) {
 
     @PostMapping("/fai-offerta")
     fun creaOfferta(@RequestBody req: OffertaRequest): ResponseEntity<String> {
-        val offerente = utenteRepo.findById(UUID.fromString(req.offerenteId)).orElseThrow()
-        val immobile = immobileRepo.findById(UUID.fromString(req.immobileId)).orElseThrow()
-        
-        // Il venditore è il proprietario dell'immobile
+        val offerente = utenteRepository.findById(req.utenteId).orElse(null)
+            ?: return ResponseEntity.badRequest().body("Utente non trovato")
+
+        val immobile = immobileRepository.findById(req.immobileId).orElse(null)
+            ?: return ResponseEntity.badRequest().body("Immobile non trovato")
+
         val venditore = immobile.proprietario
 
         val nuovaOfferta = OffertaEntity(
             offerente = offerente,
             venditore = venditore,
             immobile = immobile,
-            prezzoOfferta = req.prezzo,
+            prezzoOfferta = req.importo,
             corpo = req.corpo
         )
 
-        offertaRepo.save(nuovaOfferta)
-        
-        // TODO: RabbitMQ -> Invia notifica al venditore "Hai una nuova offerta!"
-        
-        return ResponseEntity.ok("Offerta inviata al proprietario!")
+        offertaRepository.save(nuovaOfferta)
+        return ResponseEntity.ok("Offerta inviata al proprietario")
     }
 
     @GetMapping("/per-immobile/{immobileId}")
-    fun getOffertePerImmobile(@PathVariable immobileId: String): List<Map<String, Any>> {
-        val offerte = offertaRepo.findAll()
-            .filter { it.immobile.uuid.toString() == immobileId }
+    fun getOffertePerImmobile(@PathVariable immobileId: UUID): List<OffertaDTO> {
+        val offerte = offertaRepository.findByImmobileUuid(immobileId)
 
-        return offerte.map { 
-            mapOf(
-                "id" to (it.uuid.toString()),
-                "offerente" to "${it.offerente.nome} ${it.offerente.cognome}",
-                "prezzo" to it.prezzoOfferta,
-                "data" to it.dataOfferta.toString()
+        return offerte.map {
+            OffertaDTO(
+                id = it.uuid!!,
+                immobileTitolo = it.immobile.tipologia ?: "Immobile",
+                importo = it.prezzoOfferta,
+                data = it.dataOfferta.toString()
             )
         }
     }
