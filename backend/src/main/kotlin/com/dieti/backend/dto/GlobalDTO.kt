@@ -4,22 +4,19 @@ import java.time.LocalDate
 import java.util.UUID
 
 // --- IMMOBILI ---
-
-// DTO per inviare i dettagli di un immobile al frontend
 data class ImmobileDTO(
     val id: UUID,
-    val titolo: String, // Generato es: "Appartamento a Napoli"
+    val titolo: String,
     val prezzo: Int,
     val tipologia: String?,
     val localita: String?,
     val mq: Int?,
     val descrizione: String?,
-    val coverImageId: Int?, // ID della prima immagine per la miniatura
+    val coverImageId: Int?,
     val isVendita: Boolean,
     val proprietarioId: UUID
 )
 
-// DTO per i dettagli completi (quando clicchi su un immobile)
 data class ImmobileDetailDTO(
     val id: UUID,
     val proprietarioNome: String,
@@ -42,10 +39,9 @@ data class ImmobileDetailDTO(
     val speseCondominiali: Int?,
     val disponibilita: Boolean,
     val descrizione: String?,
-    val immaginiIds: List<Int> // Lista degli ID delle immagini per scaricarle separatamente
+    val immaginiIds: List<Int>
 )
 
-// DTO per creare/modificare un immobile (Input dal Frontend)
 data class ImmobileCreateRequest(
     val proprietarioId: UUID,
     val tipoVendita: Boolean,
@@ -67,64 +63,62 @@ data class ImmobileCreateRequest(
 )
 
 // --- UTENTI ---
-
 data class UserProfileDTO(
     val id: UUID,
     val nome: String,
     val cognome: String,
     val email: String,
     val telefono: String?,
-    val bio: String? = null // Se vuoi aggiungere una bio
+    val bio: String? = null
 )
 
 data class UserUpdateRequest(
     val telefono: String?,
-    val password: String? // Opzionale, solo se vuole cambiarla
+    val password: String?
 )
 
 // --- APPUNTAMENTI ---
-
 data class AppuntamentoRequest(
     val utenteId: UUID,
     val immobileId: UUID,
+    val agenteId: UUID, // Obbligatorio nel DB
     val data: LocalDate,
-    val orario: String // Es: "10:30"
+    val orario: String // HH:mm
 )
 
 data class AppuntamentoDTO(
-    val id: Int,
+    val id: UUID,
     val immobileTitolo: String,
     val data: LocalDate,
-    val orario: String,
-    val stato: String // "IN_ATTESA", "CONFERMATO", "RIFIUTATO"
+    val orario: String
+    // 'stato' rimosso perché non esiste nel DB
 )
 
 // --- OFFERTE ---
-
 data class OffertaRequest(
     val utenteId: UUID,
     val immobileId: UUID,
-    val importo: Int
+    val importo: Int,
+    val corpo: String? = null
 )
 
 data class OffertaDTO(
-    val id: Int,
+    val id: UUID,
     val immobileTitolo: String,
     val importo: Int,
-    val stato: String // "PENDING", "ACCETTATA", "RIFIUTATA"
+    val data: String
 )
 
 // --- NOTIFICHE ---
-
 data class NotificaDTO(
-    val id: Int,
-    val messaggio: String,
-    val data: LocalDate,
-    val letta: Boolean
+    val id: UUID,
+    val titolo: String,
+    val corpo: String?,
+    val data: String,
+    val letto: Boolean
 )
 
 // --- AUTH ---
-
 data class LoginRequest(
     val email: String,
     val password: String
@@ -138,29 +132,32 @@ data class RegisterRequest(
     val telefono: String?
 )
 
+data class GoogleLoginRequest(
+    val email: String,
+    val firstName: String?,
+    val lastName: String?,
+    val idToken: String? = null
+)
+
 data class AuthResponse(
-    val token: String, // O sessionId
+    val token: String,
     val userId: UUID,
     val nome: String,
     val email: String,
-    val ruolo: String // "UTENTE", "AGENTE", "ADMIN"
+    val ruolo: String
 )
 
 // --- AGENZIE E AGENTI ---
-
 data class AgenziaDTO(
-    val id: Int,
-    val nome: String,
-    val partitaIva: String?,
-    val indirizzo: String?,
-    val email: String?
+    val nome: String
+    // Rimossi partitaIva, indirizzo, email per allineamento DB
 )
 
 data class AgenteDTO(
-    val id: Int,
+    val id: String, // UUID convertito
     val nome: String,
     val cognome: String,
-    val email: String?,
-    val telefono: String?,
-    val agenziaNome: String?
+    val email: String,
+    val agenziaNome: String
+    // Rimosso telefono per allineamento DB
 )
