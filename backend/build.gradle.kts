@@ -32,7 +32,9 @@ dependencies {
     implementation("org.postgresql:postgresql:42.7.2")
 
     // Google Auth
-    implementation("com.google.api-client:google-api-client:2.2.0")
+    implementation("com.google.api-client:google-api-client:2.2.0") {
+        exclude(group = "commons-logging", module = "commons-logging")
+    }
 
     // Test (Disabilitati per ora)
     testImplementation("org.springframework.boot:spring-boot-starter-test")
