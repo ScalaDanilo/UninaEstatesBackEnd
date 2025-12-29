@@ -1,17 +1,17 @@
 package com.dieti.backend.controller
 
 import com.dieti.backend.dto.AgenziaDTO
-import com.dieti.backend.dto.AgenteDTO
+import com.dieti.backend.entity.AgenteEntity
 import com.dieti.backend.repository.AgenziaRepository
-import com.dieti.backend.repository.AgenteRepository
+import com.dieti.backend.service.AgenteService
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/manager")
 @CrossOrigin(origins = ["*"])
-class AgencyController(
+class AgenziaController(
     private val agenziaRepository: AgenziaRepository,
-    private val agenteRepository: AgenteRepository
+    private val agenteSerivce: AgenteService
 ) {
 
     @GetMapping("/agenzie")
@@ -22,15 +22,7 @@ class AgencyController(
     }
 
     @GetMapping("/agenti")
-    fun getAllAgenti(): List<AgenteDTO> {
-        return agenteRepository.findAll().map {
-            AgenteDTO(
-                id = it.uuid.toString(),
-                nome = it.nome,
-                cognome = it.cognome,
-                email = it.email,
-                agenziaNome = it.agenzia.nome
-            )
-        }
+    fun getAllAgenti(): List<AgenteEntity> {
+        return agenteSerivce.prendiTuttiGliAgenti()
     }
 }
