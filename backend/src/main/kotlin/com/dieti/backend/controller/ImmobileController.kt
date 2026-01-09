@@ -1,156 +1,63 @@
 package com.dieti.backend.controller
 
-import com.dieti.backend.dto.*
-import com.dieti.backend.entity.ImmagineEntity
-import com.dieti.backend.entity.ImmobileEntity
-import com.dieti.backend.repository.ImmobileRepository
-import com.dieti.backend.repository.UtenteRepository
+import com.dieti.backend.ImmobileCreateRequest
+import com.dieti.backend.ImmobileDTO
+import com.dieti.backend.ImmobileSummaryDTO
+import com.dieti.backend.service.ImmobileService
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import java.util.UUID
 
 @RestController
-@RequestMapping("/api/immobili")
-@CrossOrigin(origins = ["*"])
+@RequestMapping("/api")
 class ImmobileController(
-    private val immobileRepository: ImmobileRepository,
-    private val utenteRepository: UtenteRepository
+    private val immobileService: ImmobileService
 ) {
 
-    // Lista Immobili (Home)
-    @GetMapping
-    fun getAllImmobili(
-        @RequestParam(required = false) localita: String?,
-        @RequestParam(required = false) tipologia: String?,
-        @RequestParam(required = false) prezzoMax: Int?
-    ): List<ImmobileDTO> {
-        val immobili = immobileRepository.findAll()
+    // 1. CREA IMMOBILE (Multipart request: JSON + Files)
+    @PostMapping("/immobili", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun creaImmobile(
+        // @RequestPart converte la parte "immobile" del body da JSON all'oggetto DTO
+        @RequestPart("immobile") immobileRequest: ImmobileCreateRequest,
+        // @RequestPart gestisce la lista di file
+        @RequestPart("immagini", required = false) immagini: List<MultipartFile>?,
+        authentication: Authentication // Recupera l'utente loggato da Spring Security
+    ): ResponseEntity<ImmobileDTO> {
 
-        return immobili.filter { imm ->
-            (localita == null || imm.localita?.contains(localita, ignoreCase = true) == true) &&
-                    (tipologia == null || imm.tipologia?.equals(tipologia, ignoreCase = true) == true) &&
-                    (prezzoMax == null || (imm.prezzo ?: 0) <= prezzoMax)
-        }.map { toSummaryDTO(it) }
+        // Assumo che l'email o username sia nel principal
+        val emailUtente = authentication.name
+
+        val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, emailUtente)
+        return ResponseEntity.status(HttpStatus.CREATED).body(nuovoImmobile)
     }
 
-    // Dettaglio Immobile
-    @GetMapping("/{id}")
-    fun getImmobileDetail(@PathVariable id: UUID): ResponseEntity<ImmobileDetailDTO> {
-        val immobile = immobileRepository.findById(id)
-        return if (immobile.isPresent) {
-            ResponseEntity.ok(toDetailDTO(immobile.get()))
-        } else {
-            ResponseEntity.notFound().build()
-        }
+    // 2. GET TUTTI GLI IMMOBILI
+    @GetMapping("/immobili")
+    fun getAllImmobili(): ResponseEntity<List<ImmobileSummaryDTO>> {
+        val immobili = immobileService.getAllImmobili()
+        return ResponseEntity.ok(immobili)
     }
 
-    // Crea Immobile
-    @PostMapping
-    fun createImmobile(@RequestBody request: ImmobileCreateRequest): ResponseEntity<Any> {
-        val proprietario = utenteRepository.findById(request.proprietarioId)
-        if (proprietario.isEmpty) return ResponseEntity.badRequest().body("Utente non trovato")
-
-        val newImmobile = ImmobileEntity(
-            proprietario = proprietario.get(),
-            tipoVendita = request.tipoVendita,
-            categoria = request.categoria,
-            tipologia = request.tipologia,
-            localita = request.localita,
-            mq = request.mq,
-            piano = request.piano,
-            ascensore = request.ascensore,
-            dettagli = request.dettagli,
-            arredamento = request.arredamento,
-            climatizzazione = request.climatizzazione,
-            esposizione = request.esposizione,
-            tipoProprieta = request.tipoProprieta,
-            statoProprieta = request.statoProprieta,
-            prezzo = request.prezzo,
-            speseCondominiali = request.speseCondominiali,
-            descrizione = request.descrizione,
-            disponibilita = true
-        )
-
-        val saved = immobileRepository.save(newImmobile)
-        return ResponseEntity.ok(mapOf("uuid" to saved.uuid))
+    // 3. GET SINGOLO IMMOBILE (Dettaglio)
+    @GetMapping("/immobili/{id}")
+    fun getImmobile(@PathVariable id: String): ResponseEntity<ImmobileDTO> {
+        val immobile = immobileService.getImmobileById(id)
+        return ResponseEntity.ok(immobile)
     }
 
-    // Upload Immagine
-    @PostMapping("/{id}/immagini", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
-    fun uploadImage(
-        @PathVariable id: UUID,
-        @RequestParam("file") file: MultipartFile
-    ): ResponseEntity<String> {
-        val immobileOpt = immobileRepository.findById(id)
-        if (immobileOpt.isEmpty) return ResponseEntity.notFound().build()
+    // 4. GET IMMAGINE RAW (Usato dal browser per visualizzare la foto)
+    // URL corrisponde a quello generato nel tuo toDto(): /api/immagini/{id}/raw
+    @GetMapping("/immagini/{id}/raw")
+    fun getImmagineRaw(@PathVariable id: Int): ResponseEntity<ByteArray> {
+        val immagineEntity = immobileService.getImmagineContent(id)
 
-        val immobile = immobileOpt.get()
-        val immagineEntity = ImmagineEntity(
-            nome = file.originalFilename,
-            formato = file.contentType,
-            immagine = file.bytes,
-            immobile = immobile
-        )
-
-        immobile.immagini.add(immagineEntity)
-        immobileRepository.save(immobile)
-
-        return ResponseEntity.ok("Immagine caricata")
-    }
-
-    // Cancella Immobile
-    @DeleteMapping("/{id}")
-    fun deleteImmobile(@PathVariable id: UUID): ResponseEntity<String> {
-        if (immobileRepository.existsById(id)) {
-            immobileRepository.deleteById(id)
-            return ResponseEntity.ok("Eliminato")
-        }
-        return ResponseEntity.notFound().build()
-    }
-
-    // --- MAPPERS ---
-    private fun toSummaryDTO(entity: ImmobileEntity): ImmobileDTO {
-        val coverId = if (entity.immagini.isNotEmpty()) entity.immagini[0].id else null
-        return ImmobileDTO(
-            id = entity.uuid!!,
-            titolo = "${entity.tipologia} a ${entity.localita}",
-            prezzo = entity.prezzo ?: 0,
-            tipologia = entity.tipologia,
-            localita = entity.localita,
-            mq = entity.mq,
-            descrizione = entity.descrizione,
-            coverImageId = coverId,
-            isVendita = entity.tipoVendita,
-            proprietarioId = entity.proprietario.uuid!!
-        )
-    }
-
-    private fun toDetailDTO(entity: ImmobileEntity): ImmobileDetailDTO {
-        return ImmobileDetailDTO(
-            id = entity.uuid!!,
-            proprietarioNome = "${entity.proprietario.nome} ${entity.proprietario.cognome}",
-            proprietarioId = entity.proprietario.uuid!!,
-            tipoVendita = entity.tipoVendita,
-            categoria = entity.categoria,
-            tipologia = entity.tipologia,
-            localita = entity.localita,
-            mq = entity.mq,
-            piano = entity.piano,
-            ascensore = entity.ascensore,
-            dettagli = entity.dettagli,
-            arredamento = entity.arredamento,
-            climatizzazione = entity.climatizzazione,
-            esposizione = entity.esposizione,
-            tipoProprieta = entity.tipoProprieta,
-            statoProprieta = entity.statoProprieta,
-            annoCostruzione = entity.annoCostruzione,
-            prezzo = entity.prezzo,
-            speseCondominiali = entity.speseCondominiali,
-            disponibilita = entity.disponibilita,
-            descrizione = entity.descrizione,
-            immaginiIds = entity.immagini.mapNotNull { it.id }
-        )
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(immagineEntity.formato ?: "image/jpeg"))
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"${immagineEntity.nome}\"")
+            .body(immagineEntity.immagine)
     }
 }

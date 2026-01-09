@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 
 interface UtenteRepository : JpaRepository<UtenteRegistratoEntity, UUID> {
-    // Fondamentale per il Login: cerca un utente data la sua email
+    // Spring crea automaticamente la query SQL basandosi sul nome della funzione
+    fun existsByEmail(email: String): Boolean
+
+    // Ci servirà per il login
     fun findByEmail(email: String): UtenteRegistratoEntity?
 }
