@@ -1,15 +1,17 @@
 package com.dieti.backend.entity
 
 import jakarta.persistence.*
+import java.util.UUID
 
 @Entity
 @Table(name = "agenzia")
-data class AgenziaEntity(
+class AgenziaEntity(
     @Id
-    @Column(name = "nome", length = 255)
-    val nome: String, // PK come da SQL
+    @GeneratedValue(strategy = GenerationType.UUID)
+    val nome: String,
 
-    // Relazione inversa per accedere agli agenti dell'agenzia
+
+    // --- CORREZIONE QUI ---
     @OneToMany(mappedBy = "agenzia", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
-    val agenti: MutableList<AgenteEntity> = mutableListOf()
+    var agenti: MutableList<AgenteEntity> = mutableListOf()
 )
