@@ -7,13 +7,13 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
-import org.springframework.web.cors.CorsConfiguration
-import org.springframework.web.cors.CorsConfigurationSource
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
 @Configuration
 @EnableWebSecurity
-class SecurityConfig {
+class SecurityConfig(
+    private val simpleAuthFilter: SimpleAuthFilter // Iniettiamo il filtro creato sopra
+) {
 
     @Bean
     fun passwordEncoder(): PasswordEncoder {
@@ -23,26 +23,19 @@ class SecurityConfig {
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
-            // 1. Disabilita la protezione CSRF (Fondamentale per le API REST)
             .csrf { it.disable() }
-
-            // 2. Disabilita il login standard di Spring (pagina HTML di login)
             .formLogin { it.disable() }
             .httpBasic { it.disable() }
-
-            // 3. Gestione Autorizzazioni (L'ordine conta!)
             .authorizeHttpRequests { auth ->
-                auth
-                    // Lascia passare TUTTO quello che arriva su /auth/...
-                    .requestMatchers("/auth/**").permitAll()
+                // Endpoint pubblici
+                auth.requestMatchers("/auth/**", "/error").permitAll()
+                auth.requestMatchers("/api/immagini/**").permitAll() // Importante per Glide/Coil
 
-                    // Lascia passare le richieste di errore (altrimenti vedi 403 sugli errori)
-                    .requestMatchers("/error").permitAll()
-
-                    // Tutto il resto richiede autenticazione (lo gestiremo dopo con i Token)
-                    // Per ora, per testare se è un problema di sicurezza, puoi mettere .permitAll() anche qui se vuoi
-                    .anyRequest().authenticated()
+                // Tutti gli altri endpoint (/api/immobili) richiedono che SimpleAuthFilter abbia fatto il suo lavoro
+                auth.anyRequest().authenticated()
             }
+            // Inseriamo il nostro filtro PRIMA di quello standard, così intercettiamo l'header
+            .addFilterBefore(simpleAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()
     }

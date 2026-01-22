@@ -1,7 +1,7 @@
 package com.dieti.backend.controller
 
-import com.dieti.backend.LoginRequest
-import com.dieti.backend.UtenteRegistrazioneRequest
+import com.dieti.backend.dto.LoginRequest
+import com.dieti.backend.dto.UtenteRegistrazioneRequest
 import com.dieti.backend.service.AuthService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

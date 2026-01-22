@@ -1,218 +1,103 @@
-package com.dieti.backend
+package com.dieti.backend.dto
 
-import com.dieti.backend.entity.AgenteEntity
-import com.dieti.backend.entity.AgenziaEntity
-import com.dieti.backend.entity.AmbienteEntity
-import com.dieti.backend.entity.ImmagineEntity
-import com.dieti.backend.entity.ImmobileEntity
-import com.dieti.backend.entity.UtenteRegistratoEntity
+import com.dieti.backend.entity.*
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
-import kotlin.Int
 
-
-// --- IMMAGINI & AMBIENTE---
-
-data class ImmagineDTO(
-    val id: Int,
-    val nome: String?,
-    val formato: String?,
-    val url: String? = null
+// DTO per la risposta (Invio dati all'app)
+data class ImmobileDTO(
+    val id: String,
+    val tipoVendita: Boolean,
+    val categoria: String?,
+    val indirizzo: String?,
+    val prezzo: Int?,
+    val mq: Int?,
+    val descrizione: String?,
+    // FIX: Cambiato da LocalDate? a String? per compatibilità col Service
+    val annoCostruzione: String?,
+    val immagini: List<ImmagineDto> = emptyList(),
+    val ambienti: List<AmbienteDto> = emptyList()
 )
-fun ImmagineEntity.toDto(): ImmagineDTO {
-    val idImmagine = this.id ?: 0
-    return ImmagineDTO(
-        id = idImmagine,
-        nome = this.nome,
-        formato = this.formato,
-        // Esempio: crei già l'URL che il frontend dovrà chiamare per vedere la foto
-        url = "/api/immagini/$idImmagine/raw"
-    )
-}
 
-data class AmbienteDTO(
+data class ImmagineDto(
+    val id: Int,
+    val url: String
+)
+
+data class AmbienteDto(
     val tipologia: String,
     val numero: Int
 )
-fun AmbienteEntity.toDto(): AmbienteDTO {
-    return AmbienteDTO(
-        tipologia = this.tipologia ?: "",
-        numero = this.numero ?: 0
+
+// DTO per la richiesta (Ricezione dati dall'app)
+data class ImmobileCreateRequest(
+    val tipoVendita: Boolean,
+    val categoria: String?,
+    val indirizzo: String?,
+    val mq: Int?,
+    val piano: Int?,
+    val ascensore: Boolean?,
+    val arredamento: String?,
+    val climatizzazione: Boolean?,
+    val esposizione: String?,
+    val statoProprieta: String?,
+    // FIX: Cambiato da LocalDate? a String? per permettere il parsing manuale
+    val annoCostruzione: String?,
+    val prezzo: Int?,
+    val speseCondominiali: Int?,
+    val descrizione: String?,
+    val ambienti: List<AmbienteDto> = emptyList()
+)
+
+// --- MAPPERS IMMOBILE ---
+
+fun ImmobileCreateRequest.toEntity(proprietario: UtenteRegistratoEntity): ImmobileEntity {
+    return ImmobileEntity(
+        proprietario = proprietario,
+        tipoVendita = this.tipoVendita,
+        categoria = this.categoria,
+        indirizzo = this.indirizzo,
+        mq = this.mq,
+        piano = this.piano,
+        ascensore = this.ascensore,
+        arredamento = this.arredamento,
+        climatizzazione = this.climatizzazione,
+        esposizione = this.esposizione,
+        statoProprieta = this.statoProprieta,
+        annoCostruzione = this.annoCostruzione as LocalDate?,
+        prezzo = this.prezzo,
+        speseCondominiali = this.speseCondominiali,
+        descrizione = this.descrizione
     )
 }
 
-/// --- IMOBILI ---
-
-data class ImmobileDTO(
-    val id: String? = null, // UUID come String
-    val tipoVendita: Boolean,
-    val categoria: String? = null,
-    val tipologia: String? = null,
-    val localita: String? = null,
-    val mq: Int? = null,
-    val piano: Int? = null,
-    val ascensore: Boolean? = null,
-    val dettagli: String? = null,
-    val arredamento: String? = null,
-    val climatizzazione: Boolean? = null,
-    val esposizione: String? = null,
-    val tipoProprieta: String? = null,
-    val statoProprieta: String? = null,
-    val annoCostruzione: LocalDate? = null,
-    val prezzo: Int? = null,
-    val speseCondominiali: Int? = null,
-    val disponibilita: Boolean = true,
-    val descrizione: String? = null,
-
-    val proprietario: UtenteResponseDTO,
-    val immagini: List<ImmagineDTO> = emptyList(),
-    val ambienti: List<AmbienteDTO> = emptyList()
-)
 fun ImmobileEntity.toDto(): ImmobileDTO {
     return ImmobileDTO(
         id = this.uuid.toString(),
         tipoVendita = this.tipoVendita,
         categoria = this.categoria,
-        tipologia = this.tipologia,
-        localita = this.localita,
-        mq = this.mq,
-        piano = this.piano,
-        ascensore = this.ascensore,
-        dettagli = this.dettagli,
-        arredamento = this.arredamento,
-        climatizzazione = this.climatizzazione,
-        esposizione = this.esposizione,
-        tipoProprieta = this.tipoProprieta,
-        statoProprieta = this.statoProprieta,
-        annoCostruzione = this.annoCostruzione,
+        indirizzo = this.indirizzo,
         prezzo = this.prezzo,
-        speseCondominiali = this.speseCondominiali,
-        disponibilita = this.disponibilita,
+        mq = this.mq,
+        annoCostruzione = this.annoCostruzione?.toString(),
         descrizione = this.descrizione,
-
-        // QUI AVVIENE LA MAGIA: converte ogni elemento della lista
-        proprietario = this.proprietario.toDto(),
-        immagini = this.immagini.map { it.toDto() },
-        ambienti = this.ambienti.map { it.toDto() }
+        immagini = this.immagini.map {
+            ImmagineDto(it.id ?: 0, "/api/immagini/${it.id}/raw")
+        },
+        ambienti = this.ambienti.map {
+            AmbienteDto(it.tipologia, it.numero)
+        }
     )
 }
-data class ImmobileSummaryDTO(
-    val id: String? = null, // UUID come String
-    val tipoVendita: Boolean,
-    val categoria: String? = null,
-    val tipologia: String? = null,
-    val localita: String? = null,
-    val mq: Int? = null,
-    val piano: Int? = null,
-    val ascensore: Boolean? = null,
-    val dettagli: String? = null,
-    val arredamento: String? = null,
-    val climatizzazione: Boolean? = null,
-    val esposizione: String? = null,
-    val tipoProprieta: String? = null,
-    val statoProprieta: String? = null,
-    val annoCostruzione: LocalDate? = null,
-    val prezzo: Int? = null,
-    val speseCondominiali: Int? = null,
-    val disponibilita: Boolean = true,
-    val descrizione: String? = null,
 
-    val immagini: List<ImmagineDTO> = emptyList(),
-    val ambienti: List<AmbienteDTO> = emptyList()
-)
-fun ImmobileEntity.toSummaryDto(): ImmobileSummaryDTO {
-    return ImmobileSummaryDTO(
-        id = this.uuid.toString(),
-        tipoVendita = this.tipoVendita,
-        categoria = this.categoria,
-        tipologia = this.tipologia,
-        localita = this.localita,
-        mq = this.mq,
-        piano = this.piano,
-        ascensore = this.ascensore,
-        dettagli = this.dettagli,
-        arredamento = this.arredamento,
-        climatizzazione = this.climatizzazione,
-        esposizione = this.esposizione,
-        tipoProprieta = this.tipoProprieta,
-        statoProprieta = this.statoProprieta,
-        annoCostruzione = this.annoCostruzione,
-        prezzo = this.prezzo,
-        speseCondominiali = this.speseCondominiali,
-        disponibilita = this.disponibilita,
-        descrizione = this.descrizione,
-
-        immagini = this.immagini.map { it.toDto() },
-        ambienti = this.ambienti.map { it.toDto() }
-    )
-}
-data class ImmobileCreateRequest(
-    val tipoVendita: Boolean,
-    val categoria: String? = null,
-    val tipologia: String? = null,
-    val localita: String? = null,
-    val mq: Int? = null,
-    val piano: Int? = null,
-    val ascensore: Boolean? = null,
-    val dettagli: String? = null,
-    val arredamento: String? = null,
-    val climatizzazione: Boolean? = null,
-    val esposizione: String? = null,
-    val tipoProprieta: String? = null,
-    val statoProprieta: String? = null,
-    val annoCostruzione: LocalDate? = null,
-    val prezzo: Int? = null,
-    val speseCondominiali: Int? = null,
-    val disponibilita: Boolean = true,
-    val descrizione: String? = null,
-    val ambienti: List<AmbienteDTO> = emptyList()
-)
-fun ImmobileCreateRequest.toEntity(proprietario: UtenteRegistratoEntity): ImmobileEntity {
-
-    val immobileEntity = ImmobileEntity(
-        proprietario = proprietario,
-        tipoVendita = this.tipoVendita,
-        mq = this.mq,
-        categoria = this.categoria,
-        tipologia = this.tipologia,
-        localita = this.localita,
-        piano = this.piano,
-        ascensore = this.ascensore,
-        dettagli = this.dettagli,
-        arredamento = this.arredamento,
-        climatizzazione = this.climatizzazione,
-        esposizione = this.esposizione,
-        tipoProprieta = this.tipoProprieta,
-        statoProprieta = this.statoProprieta,
-        annoCostruzione = this.annoCostruzione,
-        prezzo = this.prezzo,
-        speseCondominiali = this.speseCondominiali,
-        disponibilita = this.disponibilita,
-        descrizione = this.descrizione,
-    )
-
-    // 2. Gestiamo gli AMBIENTI (Figli)
-    // Dobbiamo trasformare anche i DTO degli ambienti in Entità Ambienti
-    val listaAmbientiEntity = this.ambienti.map { AmbienteDTO ->
-        AmbienteEntity(
-            immobile = immobileEntity,
-            tipologia = AmbienteDTO.tipologia,
-            numero = AmbienteDTO.numero
-        )
-    }.toMutableList()
-
-    // 3. Assegniamo la lista all'immobile (se il tuo ImmobileEntity lo prevede modificabile)
-    // Nota: Spesso le liste @OneToMany sono delicate, ma nel costruttore o via setter si fa così:
-    // immobileEntity.ambienti.addAll(listaAmbientiEntity)
-    // Oppure se è nel costruttore come nel tuo codice precedente, devi farlo prima.
-
-    return immobileEntity.apply {
-        // Se usi MutableList dentro l'Entity, aggiungili qui
-        this.ambienti.addAll(listaAmbientiEntity)
-    }
+// Funzione richiesta per risolvere l'errore 'Unresolved reference toSummaryDto'
+// In questo caso la summary può essere uguale al DTO completo o una versione ridotta
+fun ImmobileEntity.toSummaryDto(): ImmobileDTO {
+    return this.toDto()
 }
 
 // --- UTENTI ---
+
 data class UtenteRegistrazioneRequest(
     val nome: String,
     val cognome: String,
@@ -220,6 +105,25 @@ data class UtenteRegistrazioneRequest(
     val password: String,
     val telefono: String?
 )
+
+data class UtenteResponseDTO(
+    val id: String,
+    val nome: String,
+    val cognome: String,
+    val email: String,
+    val telefono: String?,
+    val preferiti: List<ImmobileDTO> = emptyList()
+)
+
+data class UserUpdateRequest(
+    val nome: String,
+    val cognome: String,
+    val email: String,
+    val telefono: String,
+    val password: String
+)
+
+// --- MAPPERS UTENTE ---
 
 fun UtenteRegistrazioneRequest.toEntity(passwordEncoder: PasswordEncoder): UtenteRegistratoEntity {
     return UtenteRegistratoEntity(
@@ -231,35 +135,6 @@ fun UtenteRegistrazioneRequest.toEntity(passwordEncoder: PasswordEncoder): Utent
     )
 }
 
-data class UtenteResponseDTO(
-    val id: String,
-    val nome: String,
-    val cognome: String,
-    val email: String,
-    val telefono: String?,
-
-    val preferiti: List<ImmobileSummaryDTO> = emptyList()
-)
-fun UtenteRegistratoEntity.toDto(): UtenteResponseDTO {
-    return UtenteResponseDTO(
-        id = this.uuid.toString(),
-        nome = this.nome,
-        cognome = this.cognome,
-        email = this.email,
-        telefono = this.telefono,
-        preferiti = this.preferiti.map { it.toSummaryDto() }
-    )
-}
-
-
-data class UserUpdateRequest(
-    val nome: String,
-    val cognome: String,
-    val email: String,
-    val telefono: String,
-    val password: String
-)
-
 fun UserUpdateRequest.toEntity(passwordEncoder: PasswordEncoder): UtenteRegistratoEntity {
     return UtenteRegistratoEntity(
         nome = this.nome,
@@ -270,14 +145,26 @@ fun UserUpdateRequest.toEntity(passwordEncoder: PasswordEncoder): UtenteRegistra
     )
 }
 
+fun UtenteRegistratoEntity.toDto(): UtenteResponseDTO {
+    return UtenteResponseDTO(
+        id = this.uuid.toString(),
+        nome = this.nome,
+        cognome = this.cognome,
+        email = this.email,
+        telefono = this.telefono,
+        // Qui ora 'it.toSummaryDto()' funzionerà perché definita sopra
+        preferiti = this.preferiti.map { it.toSummaryDto() }
+    )
+}
 
 // --- APPUNTAMENTI ---
+
 data class AppuntamentoRequest(
     val utenteId: String,
     val immobileId: String,
     val agenteId: String,
-    val data: String, // Formato "YYYY-MM-DD"
-    val orario: String // Formato "HH:mm"
+    val data: String, // "YYYY-MM-DD"
+    val orario: String // "HH:mm"
 )
 
 data class ProposalResponseRequest(
@@ -287,14 +174,15 @@ data class ProposalResponseRequest(
 data class AppuntamentoDTO(
     val id: String,
     val utenteId: String,
-    val data: String, // "YYYY-MM-DD"
-    val ora: String,  // "HH:mm"
-    val stato: String, // "PROGRAMMATO", "COMPLETATO", "CANCELLATO"
+    val data: String,
+    val ora: String,
+    val stato: String,
     val immobileId: String?,
     val titoloImmobile: String?
 )
 
 // --- OFFERTE ---
+
 data class OffertaRequest(
     val utenteId: String,
     val immobileId: String,
@@ -310,17 +198,18 @@ data class OffertaDTO(
 )
 
 // --- NOTIFICHE ---
+
 data class NotificationDTO(
     val id: String,
     val titolo: String,
     val corpo: String?,
-    val data: String, // ISO date string
+    val data: String,
     val letto: Boolean,
     val tipo: String = "INFO"
 )
 
 data class NotificationDetailDTO(
-    val id: String, // UUID
+    val id: String,
     val titolo: String,
     val corpo: String?,
     val data: String,
@@ -329,11 +218,12 @@ data class NotificationDetailDTO(
     val mittenteNome: String?,
     val mittenteTipo: String?,
     val isProposta: Boolean = false,
-    val immobileId: String? = null, // UUID
+    val immobileId: String? = null,
     val prezzoProposto: Double? = null
 )
 
 // --- AUTH ---
+
 data class LoginRequest(
     val email: String,
     val password: String
@@ -363,9 +253,11 @@ data class AuthResponse(
 )
 
 // --- AGENZIE E AGENTI ---
+
 data class AgenziaDTO(
     val nome: String
 )
+
 fun AgenziaEntity.toDTO(): AgenziaDTO {
     return AgenziaDTO(
         nome = this.nome
@@ -380,8 +272,8 @@ data class AgenteDTO(
     val agenziaNome: String
 )
 
-fun AgenteEntity.toDTO(): AgenteDTO{
-    return AgenteDTO (
+fun AgenteEntity.toDTO(): AgenteDTO {
+    return AgenteDTO(
         id = this.uuid.toString(),
         nome = this.nome,
         cognome = this.cognome,

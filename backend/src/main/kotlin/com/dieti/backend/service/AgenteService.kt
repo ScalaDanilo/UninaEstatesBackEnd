@@ -1,6 +1,5 @@
 package com.dieti.backend.service
 
-import com.dieti.backend.AgenteDTO
 import com.dieti.backend.repository.AgenteRepository
 import com.dieti.backend.entity.AgenteEntity
 import org.springframework.stereotype.Service

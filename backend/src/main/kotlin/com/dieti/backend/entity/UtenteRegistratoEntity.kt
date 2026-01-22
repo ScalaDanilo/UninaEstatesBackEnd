@@ -5,24 +5,37 @@ import java.util.UUID
 
 @Entity
 @Table(name = "utente_registrato")
-data class UtenteRegistratoEntity(
+class UtenteRegistratoEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val uuid: UUID? = null,
+    var uuid: UUID? = null,
 
-    val nome: String,
-    val cognome: String,
+    var nome: String,
+    var cognome: String,
+
     @Column(unique = true)
-    val email: String,
-    val password: String? = null,
-    val telefono: String? = null,
+    var email: String,
 
-    // Relazione Preferiti (Molti a Molti)
-    @ManyToMany
+    var password: String? = null,
+    var telefono: String? = null
+) {
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "preferiti",
         joinColumns = [JoinColumn(name = "user_id")],
         inverseJoinColumns = [JoinColumn(name = "immobile_id")]
     )
-    val preferiti: MutableList<ImmobileEntity> = mutableListOf()
-)
+    var preferiti: MutableList<ImmobileEntity> = mutableListOf()
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is UtenteRegistratoEntity) return false
+        return uuid != null && uuid == other.uuid
+    }
+
+    override fun hashCode(): Int = 31
+
+    override fun toString(): String {
+        return "UtenteRegistratoEntity(uuid=$uuid, email='$email')"
+    }
+}
