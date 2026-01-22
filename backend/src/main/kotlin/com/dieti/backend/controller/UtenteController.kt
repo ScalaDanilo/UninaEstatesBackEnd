@@ -1,17 +1,25 @@
 package com.dieti.backend.controller
 
-import com.dieti.backend.repository.ImmobileRepository
-import com.dieti.backend.repository.UtenteRepository
+import com.dieti.backend.service.UtenteService
+import com.dieti.backend.toDto
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
 @RestController
 @RequestMapping("/api/utenti")
-@CrossOrigin(origins = ["*"])
+@CrossOrigin(origins = ["*"]) // Configura come necessario per la sicurezza
 class UtenteController(
-    private val utenteRepository: UtenteRepository,
-    private val immobileRepository: ImmobileRepository
+    private val utenteService: UtenteService
 ) {
 
+    @GetMapping("/{id}")
+    fun getUserProfile(@PathVariable id: UUID): ResponseEntity<Any> {
+        return try {
+            val utente = utenteService.getUtenteById(id)
+            ResponseEntity.ok(utente.toDto())
+        } catch (e: Exception) {
+            ResponseEntity.status(404).body("Utente non trovato")
+        }
+    }
 }
