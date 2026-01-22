@@ -1,11 +1,11 @@
 package com.dieti.backend.service
 
-import com.dieti.backend.LoginRequest
-import com.dieti.backend.UtenteRegistrazioneRequest
-import com.dieti.backend.UtenteResponseDTO
+import com.dieti.backend.dto.LoginRequest
+import com.dieti.backend.dto.UtenteRegistrazioneRequest
+import com.dieti.backend.dto.UtenteResponseDTO
+import com.dieti.backend.dto.toDto
+import com.dieti.backend.dto.toEntity
 import com.dieti.backend.repository.UtenteRepository
-import com.dieti.backend.toDto
-import com.dieti.backend.toEntity
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

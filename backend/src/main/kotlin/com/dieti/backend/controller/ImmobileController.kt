@@ -1,63 +1,74 @@
 package com.dieti.backend.controller
 
-import com.dieti.backend.ImmobileCreateRequest
-import com.dieti.backend.ImmobileDTO
-import com.dieti.backend.ImmobileSummaryDTO
+import com.dieti.backend.dto.ImmobileCreateRequest
+import com.dieti.backend.dto.ImmobileDTO
 import com.dieti.backend.service.ImmobileService
-import org.springframework.http.HttpHeaders
+import jakarta.persistence.EntityNotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
+import java.io.PrintWriter
+import java.io.StringWriter
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/immobili")
 class ImmobileController(
     private val immobileService: ImmobileService
 ) {
 
-    // 1. CREA IMMOBILE (Multipart request: JSON + Files)
-    @PostMapping("/immobili", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun creaImmobile(
-        // @RequestPart converte la parte "immobile" del body da JSON all'oggetto DTO
         @RequestPart("immobile") immobileRequest: ImmobileCreateRequest,
-        // @RequestPart gestisce la lista di file
         @RequestPart("immagini", required = false) immagini: List<MultipartFile>?,
-        authentication: Authentication // Recupera l'utente loggato da Spring Security
-    ): ResponseEntity<ImmobileDTO> {
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            println("=== RICHIESTA CREAZIONE IMMOBILE ===")
+            println("Utente: $emailUtente")
+            println("Dati: $immobileRequest")
+            println("Immagini ricevute: ${immagini?.size ?: 0}")
 
-        // Assumo che l'email o username sia nel principal
-        val emailUtente = authentication.name
+            if (immagini != null && immagini.isNotEmpty()) {
+                println("Info primo file: ${immagini[0].originalFilename} (${immagini[0].size} bytes)")
+            }
 
-        val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, emailUtente)
-        return ResponseEntity.status(HttpStatus.CREATED).body(nuovoImmobile)
+            val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, emailUtente)
+
+            println("=== SUCCESSO: Immobile creato con ID ${nuovoImmobile.id} ===")
+            ResponseEntity.status(HttpStatus.CREATED).body(nuovoImmobile)
+
+        } catch (e: EntityNotFoundException) {
+            println("ERRORE UTENTE: ${e.message}")
+            ResponseEntity.status(HttpStatus.FORBIDDEN).body("Utente non trovato.")
+        } catch (e: Exception) {
+            println("!!! ERRORE CRITICO (500) !!!")
+            e.printStackTrace() // Stampa l'errore completo nella console del server
+
+            // Restituisce l'errore dettagliato al client (utile per debug)
+            val sw = StringWriter()
+            e.printStackTrace(PrintWriter(sw))
+            val errorDetails = "Errore Server: ${e.message}\n\nStack:\n$sw"
+
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDetails)
+        }
     }
 
-    // 2. GET TUTTI GLI IMMOBILI
-    @GetMapping("/immobili")
-    fun getAllImmobili(): ResponseEntity<List<ImmobileSummaryDTO>> {
-        val immobili = immobileService.getAllImmobili()
-        return ResponseEntity.ok(immobili)
+    @GetMapping
+    fun getImmobili(): List<ImmobileDTO> {
+        return immobileService.getAllImmobili()
     }
 
-    // 3. GET SINGOLO IMMOBILE (Dettaglio)
-    @GetMapping("/immobili/{id}")
+    @GetMapping("/{id}")
     fun getImmobile(@PathVariable id: String): ResponseEntity<ImmobileDTO> {
-        val immobile = immobileService.getImmobileById(id)
-        return ResponseEntity.ok(immobile)
-    }
-
-    // 4. GET IMMAGINE RAW (Usato dal browser per visualizzare la foto)
-    // URL corrisponde a quello generato nel tuo toDto(): /api/immagini/{id}/raw
-    @GetMapping("/immagini/{id}/raw")
-    fun getImmagineRaw(@PathVariable id: Int): ResponseEntity<ByteArray> {
-        val immagineEntity = immobileService.getImmagineContent(id)
-
-        return ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType(immagineEntity.formato ?: "image/jpeg"))
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"${immagineEntity.nome}\"")
-            .body(immagineEntity.immagine)
+        return try {
+            val immobile = immobileService.getImmobileById(id)
+            ResponseEntity.ok(immobile)
+        } catch (e: Exception) {
+            ResponseEntity.notFound().build()
+        }
     }
 }

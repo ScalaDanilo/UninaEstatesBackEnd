@@ -6,44 +6,65 @@ import java.util.UUID
 
 @Entity
 @Table(name = "immobile")
-data class ImmobileEntity(
+class ImmobileEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val uuid: UUID? = null,
+    var uuid: UUID? = null,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    val proprietario: UtenteRegistratoEntity,
+    var proprietario: UtenteRegistratoEntity,
 
     @Column(name = "tipo_vendita")
-    val tipoVendita: Boolean, // true = Vendita
-    
-    val categoria: String? = null,
-    val tipologia: String? = null,
-    val localita: String? = null,
-    val mq: Int? = null,
-    val piano: Int? = null,
-    val ascensore: Boolean? = null,
-    val dettagli: String? = null, // TEXT in SQL è String in Kotlin
-    val arredamento: String? = null,
-    val climatizzazione: Boolean? = null,
-    val esposizione: String? = null,
+    var tipoVendita: Boolean = false,
+
+    var categoria: String? = null,
+    var indirizzo: String? = null,
+    var localita: String? = null,
+    var mq: Int? = null,
+    var piano: Int? = null,
+    var ascensore: Boolean? = null,
+    var arredamento: String? = null,
+    var climatizzazione: Boolean? = null,
+    var esposizione: String? = null,
+
     @Column(name = "tipo_proprieta")
-    val tipoProprieta: String? = null,
+    var tipoProprieta: String? = null,
+
     @Column(name = "stato_proprieta")
-    val statoProprieta: String? = null,
+    var statoProprieta: String? = null,
+
     @Column(name = "anno_costruzione")
-    val annoCostruzione: LocalDate? = null,
-    val prezzo: Int? = null,
+    var annoCostruzione: LocalDate? = null,
+
+    var prezzo: Int? = null,
+
     @Column(name = "spese_condominiali")
-    val speseCondominiali: Int? = null,
-    val disponibilita: Boolean = true,
-    val descrizione: String? = null,
+    var speseCondominiali: Int? = null,
 
-    // Relazioni Figlie
+    var descrizione: String? = null
+) {
+    // Relazioni definite fuori dal costruttore per evitare problemi con toString() automatici
     @OneToMany(mappedBy = "immobile", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val immagini: MutableList<ImmagineEntity> = mutableListOf(),
+    var immagini: MutableList<ImmagineEntity> = mutableListOf()
 
     @OneToMany(mappedBy = "immobile", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val ambienti: MutableList<AmbienteEntity> = mutableListOf()
-)
+    var ambienti: MutableList<AmbienteEntity> = mutableListOf()
+
+    // --- METODI SICURI PER HIBERNATE ---
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ImmobileEntity) return false
+        return uuid != null && uuid == other.uuid
+    }
+
+    override fun hashCode(): Int {
+        // Restituisce un codice costante per evitare problemi quando l'ID cambia dopo il salvataggio
+        return 31
+    }
+
+    override fun toString(): String {
+        return "ImmobileEntity(uuid=$uuid, indirizzo=$indirizzo)"
+    }
+}

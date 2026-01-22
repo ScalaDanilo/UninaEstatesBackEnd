@@ -1,6 +1,5 @@
 package com.dieti.backend.controller
 
-import com.dieti.backend.AgenteDTO
 import com.dieti.backend.service.AgenteService
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
