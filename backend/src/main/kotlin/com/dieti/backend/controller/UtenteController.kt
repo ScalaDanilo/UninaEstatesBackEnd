@@ -1,7 +1,7 @@
 package com.dieti.backend.controller
 
+import com.dieti.backend.dto.toDto
 import com.dieti.backend.service.UtenteService
-import com.dieti.backend.toDto
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
