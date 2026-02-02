@@ -13,9 +13,34 @@ data class ImmobileDTO(
     val prezzo: Int?,
     val mq: Int?,
     val descrizione: String?,
-    // FIX: Cambiato da LocalDate? a String? per compatibilità col Service
     val annoCostruzione: String?,
     val immagini: List<ImmagineDto> = emptyList(),
+    val ambienti: List<AmbienteDto> = emptyList(),
+
+    // Nuovi campi per il Frontend
+    val lat: Double?,
+    val long: Double?,
+    val parco: Boolean,
+    val scuola: Boolean,
+    val servizioPubblico: Boolean
+)
+
+data class ImmobileCreateRequest(
+    val tipoVendita: Boolean,
+    val categoria: String?,
+    val indirizzo: String?,
+    val localita: String? = "Napoli",
+    val mq: Int?,
+    val piano: Int?,
+    val ascensore: Boolean?,
+    val arredamento: String?,
+    val climatizzazione: Boolean?,
+    val esposizione: String?,
+    val statoProprieta: String?,
+    val annoCostruzione: String?,
+    val prezzo: Int?,
+    val speseCondominiali: Int?,
+    val descrizione: String?,
     val ambienti: List<AmbienteDto> = emptyList()
 )
 
@@ -29,24 +54,22 @@ data class AmbienteDto(
     val numero: Int
 )
 
-// DTO per la richiesta (Ricezione dati dall'app)
-data class ImmobileCreateRequest(
-    val tipoVendita: Boolean,
-    val categoria: String?,
-    val indirizzo: String?,
-    val mq: Int?,
-    val piano: Int?,
-    val ascensore: Boolean?,
-    val arredamento: String?,
-    val climatizzazione: Boolean?,
-    val esposizione: String?,
-    val statoProprieta: String?,
-    // FIX: Cambiato da LocalDate? a String? per permettere il parsing manuale
-    val annoCostruzione: String?,
-    val prezzo: Int?,
-    val speseCondominiali: Int?,
-    val descrizione: String?,
-    val ambienti: List<AmbienteDto> = emptyList()
+data class ImmobileSearchFilters(
+    val query: String? = null,
+    val tipoVendita: Boolean? = null, // true = vendita, false = affitto
+    val minPrezzo: Int? = null,
+    val maxPrezzo: Int? = null,
+    val minMq: Int? = null,
+    val maxMq: Int? = null,
+    val minStanze: Int? = null,
+    val maxStanze: Int? = null,
+    val bagni: Int? = null,
+    val condizione: String? = null,
+
+    // CAMPI AGGIUNTI PER FIXARE L'ERRORE NEL SERVICE
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val radiusKm: Double? = null
 )
 
 // --- MAPPERS IMMOBILE ---
@@ -86,12 +109,16 @@ fun ImmobileEntity.toDto(): ImmobileDTO {
         },
         ambienti = this.ambienti.map {
             AmbienteDto(it.tipologia, it.numero)
-        }
+        },
+        // MAPPING CORRETTO: Entity (Inglese) -> DTO (Italiano)
+        lat = this.lat,
+        long = this.long,
+        scuola = this.scuola,
+        parco = this.parco,
+        servizioPubblico = this.servizioPubblico
     )
 }
 
-// Funzione richiesta per risolvere l'errore 'Unresolved reference toSummaryDto'
-// In questo caso la summary può essere uguale al DTO completo o una versione ridotta
 fun ImmobileEntity.toSummaryDto(): ImmobileDTO {
     return this.toDto()
 }
@@ -152,7 +179,6 @@ fun UtenteRegistratoEntity.toDto(): UtenteResponseDTO {
         cognome = this.cognome,
         email = this.email,
         telefono = this.telefono,
-        // Qui ora 'it.toSummaryDto()' funzionerà perché definita sopra
         preferiti = this.preferiti.map { it.toSummaryDto() }
     )
 }
@@ -163,8 +189,8 @@ data class AppuntamentoRequest(
     val utenteId: String,
     val immobileId: String,
     val agenteId: String,
-    val data: String, // "YYYY-MM-DD"
-    val orario: String // "HH:mm"
+    val data: String,
+    val orario: String
 )
 
 data class ProposalResponseRequest(
