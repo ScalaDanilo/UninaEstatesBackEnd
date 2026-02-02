@@ -6,15 +6,20 @@ import java.util.UUID
 
 @Entity
 @Table(name = "ultima_ricerca")
-data class UltimaRicercaEntity(
+class UltimaRicercaEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val uuid: UUID? = null,
+    var uuid: UUID? = null,
 
-    val corpo: String? = null,
-    val data: LocalDate = LocalDate.now(),
+    var corpo: String? = null,
+    var data: LocalDate = LocalDate.now(),
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    // FIX: Cambiato da "user_registrato_id" a "utente_registrato_id" per coerenza standard JPA/DB
     @JoinColumn(name = "user_id")
-    val utenteNonRegistrato: UtenteNonRegistratoEntity
+    var utenteRegistrato: UtenteRegistratoEntity? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "utente_non_registrato_id")
+    var utenteNonRegistrato: UtenteNonRegistratoEntity? = null
 )

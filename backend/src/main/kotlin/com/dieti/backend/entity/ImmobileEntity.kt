@@ -42,16 +42,22 @@ class ImmobileEntity(
     @Column(name = "spese_condominiali")
     var speseCondominiali: Int? = null,
 
-    var descrizione: String? = null
+    var descrizione: String? = null,
+
+    // --- NUOVI PARAMETRI GEOGRAFICI & SERVIZI ---
+    var lat: Double? = null,
+    var long: Double? = null,
+
+    var parco: Boolean = false,
+    var scuola: Boolean = false,
+    var servizioPubblico: Boolean = false
+
 ) {
-    // Relazioni definite fuori dal costruttore per evitare problemi con toString() automatici
     @OneToMany(mappedBy = "immobile", cascade = [CascadeType.ALL], orphanRemoval = true)
     var immagini: MutableList<ImmagineEntity> = mutableListOf()
 
     @OneToMany(mappedBy = "immobile", cascade = [CascadeType.ALL], orphanRemoval = true)
     var ambienti: MutableList<AmbienteEntity> = mutableListOf()
-
-    // --- METODI SICURI PER HIBERNATE ---
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -59,10 +65,7 @@ class ImmobileEntity(
         return uuid != null && uuid == other.uuid
     }
 
-    override fun hashCode(): Int {
-        // Restituisce un codice costante per evitare problemi quando l'ID cambia dopo il salvataggio
-        return 31
-    }
+    override fun hashCode(): Int = 31
 
     override fun toString(): String {
         return "ImmobileEntity(uuid=$uuid, indirizzo=$indirizzo)"
