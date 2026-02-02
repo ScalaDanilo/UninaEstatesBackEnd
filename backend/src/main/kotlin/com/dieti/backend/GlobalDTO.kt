@@ -4,7 +4,7 @@ import com.dieti.backend.entity.*
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
 
-// DTO per la risposta (Invio dati all'app)
+// --- DTO IMMOBILE (Completo per dettagli) ---
 data class ImmobileDTO(
     val id: String,
     val tipoVendita: Boolean,
@@ -25,6 +25,25 @@ data class ImmobileDTO(
     val servizioPubblico: Boolean
 )
 
+data class ImmagineDto(
+    val id: Int,
+    val url: String
+)
+
+data class AmbienteDto(
+    val tipologia: String,
+    val numero: Int
+)
+
+// --- DTO IMMOBILE SEMPLIFICATO (Adattato al tuo codice) ---
+data class ImmobileSummaryDTO(
+    val id: String,
+    val prezzo: Int?,        // Adattato a Int? come nel tuo ImmobileDTO
+    val indirizzo: String?,  // Adattato a String? come nel tuo ImmobileDTO
+    val urlImmagine: List<ImmagineDto> // Campo calcolato utile per l'anteprima
+)
+
+// --- DTO RICHIESTA CREAZIONE IMMOBILE ---
 data class ImmobileCreateRequest(
     val tipoVendita: Boolean,
     val categoria: String?,
@@ -75,6 +94,11 @@ data class ImmobileSearchFilters(
 // --- MAPPERS IMMOBILE ---
 
 fun ImmobileCreateRequest.toEntity(proprietario: UtenteRegistratoEntity): ImmobileEntity {
+    // Parsing sicuro della data
+    val dataCostruzione = try {
+        if (!this.annoCostruzione.isNullOrBlank()) LocalDate.parse(this.annoCostruzione) else null
+    } catch (e: Exception) { null }
+
     return ImmobileEntity(
         proprietario = proprietario,
         tipoVendita = this.tipoVendita,
@@ -87,8 +111,8 @@ fun ImmobileCreateRequest.toEntity(proprietario: UtenteRegistratoEntity): Immobi
         climatizzazione = this.climatizzazione,
         esposizione = this.esposizione,
         statoProprieta = this.statoProprieta,
-        annoCostruzione = this.annoCostruzione as LocalDate?,
-        prezzo = this.prezzo,
+        annoCostruzione = dataCostruzione,
+        prezzo = this.prezzo, // Entity usa Double, DTO usa Int
         speseCondominiali = this.speseCondominiali,
         descrizione = this.descrizione
     )
@@ -100,12 +124,12 @@ fun ImmobileEntity.toDto(): ImmobileDTO {
         tipoVendita = this.tipoVendita,
         categoria = this.categoria,
         indirizzo = this.indirizzo,
-        prezzo = this.prezzo,
+        prezzo = this.prezzo?.toInt(),
         mq = this.mq,
         annoCostruzione = this.annoCostruzione?.toString(),
         descrizione = this.descrizione,
         immagini = this.immagini.map {
-            ImmagineDto(it.id ?: 0, "/api/immagini/${it.id}/raw")
+            ImmagineDto(it.id?.toInt() ?: 0, "/api/immagini/${it.id}/raw")
         },
         ambienti = this.ambienti.map {
             AmbienteDto(it.tipologia, it.numero)
@@ -121,6 +145,20 @@ fun ImmobileEntity.toDto(): ImmobileDTO {
 
 fun ImmobileEntity.toSummaryDto(): ImmobileDTO {
     return this.toDto()
+}
+// Funzione helper per mappare l'Entity al DTO semplificato (Preferiti)
+fun ImmobileEntity.toSummaryDto(): ImmobileSummaryDTO {
+    // Logica per estrarre l'immagine principale: URL diretto o prima immagine della lista
+    val imageToUse = this.immagini.map {
+        ImmagineDto(it.id?.toInt() ?: 0, "/api/immagini/${it.id}/raw")
+    }
+
+    return ImmobileSummaryDTO(
+        id = this.uuid.toString(),
+        prezzo = this.prezzo?.toInt(), // Convertiamo Double a Int per uniformità
+        indirizzo = this.indirizzo,
+        urlImmagine = imageToUse
+    )
 }
 
 // --- UTENTI ---
@@ -139,7 +177,8 @@ data class UtenteResponseDTO(
     val cognome: String,
     val email: String,
     val telefono: String?,
-    val preferiti: List<ImmobileDTO> = emptyList()
+    // Usiamo il DTO semplificato per la lista preferiti
+    val preferiti: List<ImmobileSummaryDTO> = emptyList()
 )
 
 data class UserUpdateRequest(
@@ -179,6 +218,7 @@ fun UtenteRegistratoEntity.toDto(): UtenteResponseDTO {
         cognome = this.cognome,
         email = this.email,
         telefono = this.telefono,
+        // Mappiamo i preferiti usando la funzione toSummaryDto
         preferiti = this.preferiti.map { it.toSummaryDto() }
     )
 }
