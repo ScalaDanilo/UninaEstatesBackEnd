@@ -28,6 +28,24 @@ class UtenteService(
         return utente
     }
 
+    // --- METODO ELIMINAZIONE AGGIORNATO ---
+    @Transactional
+    fun eliminaUtente(uuid: UUID) {
+        // 1. Recuperiamo l'utente (ci serve l'entità completa per il deleteByProprietario)
+        val utente = utenteRepository.findById(uuid).orElseThrow {
+            RuntimeException("Impossibile eliminare: Utente non trovato")
+        }
+
+        // 2. PULIZIA: Eliminiamo prima tutti gli immobili posseduti da questo utente
+        // Se non lo facciamo, il DB bloccherà la cancellazione dell'utente (Foreign Key Error)
+        immobileRepository.deleteByProprietario(utente)
+
+        // (Opzionale: Se avessi appuntamenti/offerte, dovresti cancellare anche quelli qui)
+
+        // 3. Ora possiamo eliminare l'utente senza errori
+        utenteRepository.delete(utente)
+    }
+
     // --- AGGIUNGI PREFERITO ---
     @Transactional
     fun aggiungiPreferito(userId: UUID, immobileId: UUID) {
