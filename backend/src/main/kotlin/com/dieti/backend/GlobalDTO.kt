@@ -15,7 +15,14 @@ data class ImmobileDTO(
     val descrizione: String?,
     val annoCostruzione: String?,
     val immagini: List<ImmagineDto> = emptyList(),
-    val ambienti: List<AmbienteDto> = emptyList()
+    val ambienti: List<AmbienteDto> = emptyList(),
+
+    // Nuovi campi per il Frontend
+    val lat: Double?,
+    val long: Double?,
+    val parco: Boolean,
+    val scuola: Boolean,
+    val servizioPubblico: Boolean
 )
 
 data class ImmagineDto(
@@ -41,6 +48,7 @@ data class ImmobileCreateRequest(
     val tipoVendita: Boolean,
     val categoria: String?,
     val indirizzo: String?,
+    val localita: String? = "Napoli",
     val mq: Int?,
     val piano: Int?,
     val ascensore: Boolean?,
@@ -53,6 +61,34 @@ data class ImmobileCreateRequest(
     val speseCondominiali: Int?,
     val descrizione: String?,
     val ambienti: List<AmbienteDto> = emptyList()
+)
+
+data class ImmagineDto(
+    val id: Int,
+    val url: String
+)
+
+data class AmbienteDto(
+    val tipologia: String,
+    val numero: Int
+)
+
+data class ImmobileSearchFilters(
+    val query: String? = null,
+    val tipoVendita: Boolean? = null, // true = vendita, false = affitto
+    val minPrezzo: Int? = null,
+    val maxPrezzo: Int? = null,
+    val minMq: Int? = null,
+    val maxMq: Int? = null,
+    val minStanze: Int? = null,
+    val maxStanze: Int? = null,
+    val bagni: Int? = null,
+    val condizione: String? = null,
+
+    // CAMPI AGGIUNTI PER FIXARE L'ERRORE NEL SERVICE
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val radiusKm: Double? = null
 )
 
 // --- MAPPERS IMMOBILE ---
@@ -97,10 +133,19 @@ fun ImmobileEntity.toDto(): ImmobileDTO {
         },
         ambienti = this.ambienti.map {
             AmbienteDto(it.tipologia, it.numero)
-        }
+        },
+        // MAPPING CORRETTO: Entity (Inglese) -> DTO (Italiano)
+        lat = this.lat,
+        long = this.long,
+        scuola = this.scuola,
+        parco = this.parco,
+        servizioPubblico = this.servizioPubblico
     )
 }
 
+fun ImmobileEntity.toSummaryDto(): ImmobileDTO {
+    return this.toDto()
+}
 // Funzione helper per mappare l'Entity al DTO semplificato (Preferiti)
 fun ImmobileEntity.toSummaryDto(): ImmobileSummaryDTO {
     // Logica per estrarre l'immagine principale: URL diretto o prima immagine della lista
@@ -184,8 +229,8 @@ data class AppuntamentoRequest(
     val utenteId: String,
     val immobileId: String,
     val agenteId: String,
-    val data: String, // "YYYY-MM-DD"
-    val orario: String // "HH:mm"
+    val data: String,
+    val orario: String
 )
 
 data class ProposalResponseRequest(

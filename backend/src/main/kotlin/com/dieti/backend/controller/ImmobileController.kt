@@ -2,22 +2,33 @@ package com.dieti.backend.controller
 
 import com.dieti.backend.dto.ImmobileCreateRequest
 import com.dieti.backend.dto.ImmobileDTO
+import com.dieti.backend.dto.ImmobileSearchFilters
 import com.dieti.backend.service.ImmobileService
-import jakarta.persistence.EntityNotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import java.io.PrintWriter
-import java.io.StringWriter
 
 @RestController
 @RequestMapping("/api/immobili")
 class ImmobileController(
     private val immobileService: ImmobileService
 ) {
+
+    /**
+     * ENDPOINT MANCANTE AGGIUNTO
+     * Restituisce i suggerimenti per l'autocompletamento dei comuni.
+     */
+    @GetMapping("/cities")
+    fun getSuggestedCities(@RequestParam query: String): ResponseEntity<List<String>> {
+        // Evita query troppo corte per non sovraccaricare
+        if (query.length < 2) return ResponseEntity.ok(emptyList())
+
+        val suggestions = immobileService.getSuggestedCities(query)
+        return ResponseEntity.ok(suggestions)
+    }
 
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun creaImmobile(
@@ -27,39 +38,59 @@ class ImmobileController(
     ): ResponseEntity<*> {
         return try {
             val emailUtente = authentication.name
-            println("=== RICHIESTA CREAZIONE IMMOBILE ===")
-            println("Utente: $emailUtente")
-            println("Dati: $immobileRequest")
-            println("Immagini ricevute: ${immagini?.size ?: 0}")
-
-            if (immagini != null && immagini.isNotEmpty()) {
-                println("Info primo file: ${immagini[0].originalFilename} (${immagini[0].size} bytes)")
-            }
-
             val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, emailUtente)
-
-            println("=== SUCCESSO: Immobile creato con ID ${nuovoImmobile.id} ===")
             ResponseEntity.status(HttpStatus.CREATED).body(nuovoImmobile)
-
-        } catch (e: EntityNotFoundException) {
-            println("ERRORE UTENTE: ${e.message}")
-            ResponseEntity.status(HttpStatus.FORBIDDEN).body("Utente non trovato.")
         } catch (e: Exception) {
-            println("!!! ERRORE CRITICO (500) !!!")
-            e.printStackTrace() // Stampa l'errore completo nella console del server
-
-            // Restituisce l'errore dettagliato al client (utile per debug)
-            val sw = StringWriter()
-            e.printStackTrace(PrintWriter(sw))
-            val errorDetails = "Errore Server: ${e.message}\n\nStack:\n$sw"
-
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDetails)
+            e.printStackTrace()
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore server: ${e.message}")
         }
     }
 
     @GetMapping
-    fun getImmobili(): List<ImmobileDTO> {
-        return immobileService.getAllImmobili()
+    fun getImmobili(
+        @RequestParam(required = false) query: String?,
+        @RequestParam(required = false) tipoVendita: Boolean?,
+        @RequestParam(required = false) minPrezzo: Int?,
+        @RequestParam(required = false) maxPrezzo: Int?,
+        @RequestParam(required = false) minMq: Int?,
+        @RequestParam(required = false) maxMq: Int?,
+        @RequestParam(required = false) bagni: Int?,
+        @RequestParam(required = false) condizione: String?,
+        // Parametri per ricerca Geo
+        @RequestParam(required = false) lat: Double?,
+        @RequestParam(required = false) lon: Double?,
+        @RequestParam(required = false) radiusKm: Double?,
+        authentication: Authentication?
+    ): List<ImmobileDTO> {
+
+        println("=== GET /api/immobili RICHIESTA RICEVUTA ===")
+        println("Query params: q=$query, vendita=$tipoVendita")
+
+        val filters = ImmobileSearchFilters(
+            query = query,
+            tipoVendita = tipoVendita,
+            minPrezzo = minPrezzo,
+            maxPrezzo = maxPrezzo,
+            minMq = minMq,
+            maxMq = maxMq,
+            bagni = bagni,
+            condizione = condizione,
+            lat = lat,
+            lon = lon,
+            radiusKm = radiusKm
+        )
+
+        val userId = authentication?.name
+
+        try {
+            val result = immobileService.searchImmobili(filters, userId)
+            println("=== SUCCESS: Restituisco ${result.size} immobili ===")
+            return result
+        } catch (e: Exception) {
+            println("!!! CRASH DURANTE LA RICERCA !!!")
+            e.printStackTrace()
+            throw e
+        }
     }
 
     @GetMapping("/{id}")
