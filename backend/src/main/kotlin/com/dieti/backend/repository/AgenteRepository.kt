@@ -6,4 +6,5 @@ import java.util.UUID
 
 interface AgenteRepository : JpaRepository<AgenteEntity, UUID> {
     fun findByEmail(email: String): AgenteEntity?
+    fun findAllByAgenziaUuid(agenziaId: UUID): List<AgenteEntity>
 }

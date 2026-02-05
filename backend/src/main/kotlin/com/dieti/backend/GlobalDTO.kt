@@ -3,6 +3,7 @@ package com.dieti.backend.dto
 import com.dieti.backend.entity.*
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
+import java.util.UUID
 
 // --- DTO IMMOBILE (Completo per dettagli) ---
 data class ImmobileDTO(
@@ -10,22 +11,30 @@ data class ImmobileDTO(
     val tipoVendita: Boolean,
     val categoria: String?,
     val indirizzo: String?,
+    val localita: String? = null,
     val prezzo: Int?,
     val mq: Int?,
     val descrizione: String?,
     val annoCostruzione: String?,
+
+    // Nuovi campi dettagliati aggiunti per risolvere gli errori
+    val piano: Int? = null,
+    val ascensore: Boolean? = null,
+    val arredamento: String? = null,
+    val climatizzazione: Boolean? = null,
+    val esposizione: String? = null,
+    val statoProprieta: String? = null,
+    val speseCondominiali: Int? = null,
+
     val immagini: List<ImmagineDto> = emptyList(),
-    val ambienti: List<AmbienteDto> = emptyList()
-)
+    val ambienti: List<AmbienteDto> = emptyList(),
 
-data class ImmagineDto(
-    val id: Int,
-    val url: String
-)
-
-data class AmbienteDto(
-    val tipologia: String,
-    val numero: Int
+    // Parametri Geografici e Servizi
+    val lat: Double? = null,
+    val long: Double? = null,
+    val parco: Boolean = false,
+    val scuola: Boolean = false,
+    val servizioPubblico: Boolean = false
 )
 
 // --- DTO IMMOBILE SEMPLIFICATO (Adattato al tuo codice) ---
@@ -41,6 +50,7 @@ data class ImmobileCreateRequest(
     val tipoVendita: Boolean,
     val categoria: String?,
     val indirizzo: String?,
+    val localita: String? = "Napoli",
     val mq: Int?,
     val piano: Int?,
     val ascensore: Boolean?,
@@ -53,6 +63,34 @@ data class ImmobileCreateRequest(
     val speseCondominiali: Int?,
     val descrizione: String?,
     val ambienti: List<AmbienteDto> = emptyList()
+)
+
+data class ImmagineDto(
+    val id: Int,
+    val url: String
+)
+
+data class AmbienteDto(
+    val tipologia: String,
+    val numero: Int
+)
+
+data class ImmobileSearchFilters(
+    val query: String? = null,
+    val tipoVendita: Boolean? = null, // true = vendita, false = affitto
+    val minPrezzo: Int? = null,
+    val maxPrezzo: Int? = null,
+    val minMq: Int? = null,
+    val maxMq: Int? = null,
+    val minStanze: Int? = null,
+    val maxStanze: Int? = null,
+    val bagni: Int? = null,
+    val condizione: String? = null,
+
+    // CAMPI AGGIUNTI PER FIXARE L'ERRORE NEL SERVICE
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val radiusKm: Double? = null
 )
 
 // --- MAPPERS IMMOBILE ---
@@ -97,10 +135,15 @@ fun ImmobileEntity.toDto(): ImmobileDTO {
         },
         ambienti = this.ambienti.map {
             AmbienteDto(it.tipologia, it.numero)
-        }
+        },
+        // MAPPING CORRETTO: Entity (Inglese) -> DTO (Italiano)
+        lat = this.lat,
+        long = this.long,
+        scuola = this.scuola,
+        parco = this.parco,
+        servizioPubblico = this.servizioPubblico
     )
 }
-
 // Funzione helper per mappare l'Entity al DTO semplificato (Preferiti)
 fun ImmobileEntity.toSummaryDto(): ImmobileSummaryDTO {
     // Logica per estrarre l'immagine principale: URL diretto o prima immagine della lista
@@ -191,8 +234,8 @@ data class AppuntamentoRequest(
     val utenteId: String,
     val immobileId: String,
     val agenteId: String,
-    val data: String, // "YYYY-MM-DD"
-    val orario: String // "HH:mm"
+    val data: String,
+    val orario: String
 )
 
 data class ProposalResponseRequest(
@@ -282,22 +325,42 @@ data class AuthResponse(
 
 // --- AGENZIE E AGENTI ---
 
-data class AgenziaDTO(
-    val nome: String
-)
-
-fun AgenziaEntity.toDTO(): AgenziaDTO {
-    return AgenziaDTO(
-        nome = this.nome
-    )
-}
-
-data class AgenteDTO(
-    val id: String? = null,
+data class CreateAgenteRequest(
     val nome: String,
     val cognome: String,
     val email: String,
+    val password: String,
+    val agenziaId: UUID,
+    val isCapo: Boolean
+)
+
+// DTO per creare un Amministratore (semplificato)
+data class CreateAdminRequest(
+    val email: String,
+    val password: String
+)
+
+// DTO per il cambio password
+data class ChangePasswordRequest(
+    val adminId: UUID,
+    val oldPassword: String,
+    val newPassword: String
+)
+
+// DTO di risposta Agente
+data class AgenteDTO(
+    val id: String,
+    val nome: String,
+    val cognome: String,
+    val email: String,
+    val isCapo: Boolean,
     val agenziaNome: String
+)
+// NUOVO: Risposta login admin
+data class AdminLoginResponse(
+    val id: String,
+    val email: String,
+    val role: String
 )
 
 // --- MAPPER AGENTE (Ruolo = MANAGER) ---
@@ -327,3 +390,25 @@ fun AgenteEntity.toDTO(): AgenteDTO {
         agenziaNome = this.agenzia?.nome ?: "Agenzia Sconosciuta"
     )
 }
+data class CreateAgenziaRequest(
+    val nome: String,
+    val indirizzo: String,
+    val adminId: UUID // L'admin che crea l'agenzia
+)
+
+// Per popolare la dropdown nel frontend
+data class AgenziaOptionDTO(
+    val id: String, // UUID come stringa
+    val nome: String,
+    val haCapo: Boolean // True se l'agenzia ha già un agente con isCapo=true
+)
+
+data class AdminOptionDTO(
+    val id: String,
+    val email: String
+)
+
+data class ChangeMyPasswordRequest(
+    val oldPassword: String,
+    val newPassword: String
+)

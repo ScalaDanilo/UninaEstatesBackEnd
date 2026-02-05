@@ -5,12 +5,17 @@ import java.util.UUID
 
 @Entity
 @Table(name = "amministratore")
-data class AmministratoreEntity(
+class AmministratoreEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val uuid: UUID? = null,
+    var uuid: UUID? = null,
 
-    @Column(unique = true)
-    val email: String,
-    val password: String
+    @Column(unique = true, nullable = false)
+    var email: String,
+
+    var password: String,
+
+    // Relazione: Un amministratore possiede N agenzie
+    @OneToMany(mappedBy = "amministratore", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    var agenzie: MutableList<AgenziaEntity> = mutableListOf()
 )

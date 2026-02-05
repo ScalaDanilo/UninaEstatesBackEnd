@@ -5,6 +5,10 @@ import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 
 interface UltimaRicercaRepository : JpaRepository<UltimaRicercaEntity, UUID> {
-    // Trova le ricerche di un utente (magari limitando a 5 dal service)
-    fun findByUtenteNonRegistratoUuid(userId: UUID): List<UltimaRicercaEntity>
+
+    // Trova le ricerche ordinandole per data (dalla più recente)
+    fun findAllByUtenteRegistratoEmailOrderByDataDesc(email: String): List<UltimaRicercaEntity>
+
+    // Trova una specifica ricerca per cancellarla
+    fun findByUtenteRegistratoEmailAndCorpoIgnoreCase(email: String, corpo: String): UltimaRicercaEntity?
 }
