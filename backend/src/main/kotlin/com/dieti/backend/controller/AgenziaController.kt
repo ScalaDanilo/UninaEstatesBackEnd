@@ -11,9 +11,4 @@ class AgenziaController(
     private val agenteSerivce: AgenteService
 ) {
 
-
-    @GetMapping("/agenti")
-    fun getAllAgenti(): List<AgenteEntity> {
-        return agenteSerivce.prendiTuttiGliAgenti()
-    }
 }
