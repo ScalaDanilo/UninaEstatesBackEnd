@@ -12,14 +12,25 @@ class UltimaRicercaEntity(
     var uuid: UUID? = null,
 
     var corpo: String? = null,
+
     var data: LocalDate = LocalDate.now(),
 
     @ManyToOne(fetch = FetchType.LAZY)
-    // FIX: Cambiato da "user_registrato_id" a "utente_registrato_id" per coerenza standard JPA/DB
-    @JoinColumn(name = "user_id")
-    var utenteRegistrato: UtenteRegistratoEntity? = null,
+    // *** FIX CRITICO ***
+    // Prima puntava a "user_id", ma quella colonna nel tuo DB accetta solo utenti NON registrati.
+    // Cambiando il nome in "utente_registrato_id", Hibernate creerà una NUOVA colonna pulita
+    // dedicata agli utenti registrati, aggirando l'errore di Foreign Key.
+    @JoinColumn(name = "utente_registrato_id")
+    var utenteRegistrato: UtenteRegistratoEntity? = null
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "utente_non_registrato_id")
-    var utenteNonRegistrato: UtenteNonRegistratoEntity? = null
-)
+    // Rimosso il campo utenteNonRegistrato per evitare confusione.
+    // La vecchia colonna "user_id" rimarrà nel DB ma verrà ignorata da questo codice.
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is UltimaRicercaEntity) return false
+        return uuid != null && uuid == other.uuid
+    }
+
+    override fun hashCode(): Int = 31
+}

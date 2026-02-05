@@ -3,6 +3,7 @@ package com.dieti.backend.dto
 import com.dieti.backend.entity.*
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
+import java.util.UUID
 
 // --- DTO IMMOBILE (Completo per dettagli) ---
 data class ImmobileDTO(
@@ -10,29 +11,30 @@ data class ImmobileDTO(
     val tipoVendita: Boolean,
     val categoria: String?,
     val indirizzo: String?,
+    val localita: String? = null,
     val prezzo: Int?,
     val mq: Int?,
     val descrizione: String?,
     val annoCostruzione: String?,
+
+    // Nuovi campi dettagliati aggiunti per risolvere gli errori
+    val piano: Int? = null,
+    val ascensore: Boolean? = null,
+    val arredamento: String? = null,
+    val climatizzazione: Boolean? = null,
+    val esposizione: String? = null,
+    val statoProprieta: String? = null,
+    val speseCondominiali: Int? = null,
+
     val immagini: List<ImmagineDto> = emptyList(),
     val ambienti: List<AmbienteDto> = emptyList(),
 
-    // Nuovi campi per il Frontend
-    val lat: Double?,
-    val long: Double?,
-    val parco: Boolean,
-    val scuola: Boolean,
-    val servizioPubblico: Boolean
-)
-
-data class ImmagineDto(
-    val id: Int,
-    val url: String
-)
-
-data class AmbienteDto(
-    val tipologia: String,
-    val numero: Int
+    // Parametri Geografici e Servizi
+    val lat: Double? = null,
+    val long: Double? = null,
+    val parco: Boolean = false,
+    val scuola: Boolean = false,
+    val servizioPubblico: Boolean = false
 )
 
 // --- DTO IMMOBILE SEMPLIFICATO (Adattato al tuo codice) ---
@@ -141,10 +143,6 @@ fun ImmobileEntity.toDto(): ImmobileDTO {
         parco = this.parco,
         servizioPubblico = this.servizioPubblico
     )
-}
-
-fun ImmobileEntity.toSummaryDto(): ImmobileDTO {
-    return this.toDto()
 }
 // Funzione helper per mappare l'Entity al DTO semplificato (Preferiti)
 fun ImmobileEntity.toSummaryDto(): ImmobileSummaryDTO {
@@ -320,30 +318,63 @@ data class AuthResponse(
 
 // --- AGENZIE E AGENTI ---
 
-data class AgenziaDTO(
-    val nome: String
-)
-
-fun AgenziaEntity.toDTO(): AgenziaDTO {
-    return AgenziaDTO(
-        nome = this.nome
-    )
-}
-
-data class AgenteDTO(
-    val id: String? = null,
+data class CreateAgenteRequest(
     val nome: String,
     val cognome: String,
     val email: String,
-    val agenziaNome: String
+    val password: String,
+    val agenziaId: UUID,
+    val isCapo: Boolean
 )
 
-fun AgenteEntity.toDTO(): AgenteDTO {
-    return AgenteDTO(
-        id = this.uuid.toString(),
-        nome = this.nome,
-        cognome = this.cognome,
-        email = this.email,
-        agenziaNome = this.agenzia?.nome ?: ""
-    )
-}
+// DTO per creare un Amministratore (semplificato)
+data class CreateAdminRequest(
+    val email: String,
+    val password: String
+)
+
+// DTO per il cambio password
+data class ChangePasswordRequest(
+    val adminId: UUID,
+    val oldPassword: String,
+    val newPassword: String
+)
+
+// DTO di risposta Agente
+data class AgenteDTO(
+    val id: String,
+    val nome: String,
+    val cognome: String,
+    val email: String,
+    val isCapo: Boolean,
+    val agenziaNome: String
+)
+// NUOVO: Risposta login admin
+data class AdminLoginResponse(
+    val id: String,
+    val email: String,
+    val role: String
+)
+
+data class CreateAgenziaRequest(
+    val nome: String,
+    val indirizzo: String,
+    val adminId: UUID // L'admin che crea l'agenzia
+)
+
+// Per popolare la dropdown nel frontend
+data class AgenziaOptionDTO(
+    val id: String, // UUID come stringa
+    val nome: String,
+    val haCapo: Boolean // True se l'agenzia ha già un agente con isCapo=true
+)
+
+data class AdminOptionDTO(
+    val id: String,
+    val email: String
+)
+
+data class ChangeMyPasswordRequest(
+    val oldPassword: String,
+    val newPassword: String
+)

@@ -14,20 +14,16 @@ class UltimaRicercaService(
     private val utenteRepository: UtenteRepository
 ) {
 
-    /**
-     * FIX CRITICO: `propagation = Propagation.REQUIRES_NEW`
-     * Questo crea una nuova transazione separata per il salvataggio della cronologia.
-     * Se questo metodo fallisce (es. errore colonne DB), la transazione principale
-     * (quella che recupera gli immobili) RIMANE VALIDA e l'utente vede i risultati.
-     */
+    // --- SALVATAGGIO (Già esistente, con Transactional separata) ---
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun salvaRicerca(query: String, emailUtente: String) {
-        try {
-            if (query.isBlank()) return
+        if (query.isBlank()) return
 
+        try {
             val utente = utenteRepository.findByEmail(emailUtente) ?: return
             val ricercheEsistenti = ultimaRicercaRepository.findAllByUtenteRegistratoEmailOrderByDataDesc(emailUtente)
 
+            // Se esiste già, aggiorna la data
             val ricercaEsistente = ricercheEsistenti.find { it.corpo.equals(query, ignoreCase = true) }
             if (ricercaEsistente != null) {
                 ricercaEsistente.data = LocalDate.now()
@@ -35,22 +31,37 @@ class UltimaRicercaService(
                 return
             }
 
+            // Se superiamo il limite di 10, elimina la più vecchia
             if (ricercheEsistenti.size >= 10) {
-                val daEliminare = ricercheEsistenti.last()
+                val daEliminare = ricercheEsistenti.last() // Essendo ordinata DESC, l'ultima è la più vecchia
                 ultimaRicercaRepository.delete(daEliminare)
             }
 
+            // Salva nuova
             val nuovaRicerca = UltimaRicercaEntity(
                 corpo = query,
                 data = LocalDate.now(),
                 utenteRegistrato = utente
             )
             ultimaRicercaRepository.save(nuovaRicerca)
-
         } catch (e: Exception) {
-            // Logghiamo l'errore ma non facciamo crashare nulla.
-            // Grazie a REQUIRES_NEW, questo catch protegge la ricerca degli immobili.
-            println("WARNING: Impossibile salvare la ricerca: ${e.message}")
+            println("WARNING: Errore salvataggio cronologia: ${e.message}")
+        }
+    }
+
+    // --- RECUPERO ---
+    @Transactional(readOnly = true)
+    fun getRicercheRecenti(emailUtente: String): List<String> {
+        return ultimaRicercaRepository.findAllByUtenteRegistratoEmailOrderByDataDesc(emailUtente)
+            .mapNotNull { it.corpo }
+    }
+
+    // --- CANCELLAZIONE SINGOLA ---
+    @Transactional
+    fun cancellaRicerca(query: String, emailUtente: String) {
+        val ricerca = ultimaRicercaRepository.findByUtenteRegistratoEmailAndCorpoIgnoreCase(emailUtente, query)
+        if (ricerca != null) {
+            ultimaRicercaRepository.delete(ricerca)
         }
     }
 }
