@@ -12,7 +12,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
-    private val simpleAuthFilter: SimpleAuthFilter // Iniettiamo il filtro creato sopra
+    private val simpleAuthFilter: SimpleAuthFilter
 ) {
 
     @Bean
@@ -29,12 +29,14 @@ class SecurityConfig(
             .authorizeHttpRequests { auth ->
                 // Endpoint pubblici
                 auth.requestMatchers("/auth/**", "/error").permitAll()
-                auth.requestMatchers("/api/immagini/**").permitAll() // Importante per Glide/Coil
+                auth.requestMatchers("/api/immagini/**").permitAll()
 
-                // Tutti gli altri endpoint (/api/immobili) richiedono che SimpleAuthFilter abbia fatto il suo lavoro
+                // *** FIX: Rendiamo pubblico il login dell'admin ***
+                auth.requestMatchers("/api/admin/login").permitAll()
+
+                // Tutti gli altri endpoint richiedono autenticazione
                 auth.anyRequest().authenticated()
             }
-            // Inseriamo il nostro filtro PRIMA di quello standard, così intercettiamo l'header
             .addFilterBefore(simpleAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()

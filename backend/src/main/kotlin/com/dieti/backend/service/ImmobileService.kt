@@ -25,18 +25,13 @@ class ImmobileService(
     private val redisGeoService: RedisGeoService
 ) {
 
-    // --- RICERCA SUGGERIMENTI COMUNI ---
     fun getSuggestedCities(query: String): List<String> {
         val queryLower = query.lowercase().trim()
-
-        // 1. Redis
         val citiesFromRedis = redisGeoService.searchCities(queryLower)
         if (citiesFromRedis.isNotEmpty()) return citiesFromRedis
 
-        // 2. DB
         val citiesFromDb = immobileRepository.findDistinctLocalita()
 
-        // 3. Cache Warming
         if (citiesFromDb.isNotEmpty()) {
             citiesFromDb.forEach { city ->
                 if (!city.isNullOrBlank() && city != "Non specificato") {
@@ -45,7 +40,6 @@ class ImmobileService(
             }
         }
 
-        // 4. Filter
         return citiesFromDb.filter {
             !it.isNullOrBlank() &&
                     it != "Non specificato" &&
@@ -55,19 +49,24 @@ class ImmobileService(
 
     @Transactional
     fun searchImmobili(filters: ImmobileSearchFilters, userId: String?): List<ImmobileDTO> {
-        // FIX CRASH 500: Avvolgiamo il salvataggio della ricerca in un try-catch.
-        // Se il DB ha problemi con la tabella 'ultima_ricerca', l'utente vedrà comunque gli appartamenti.
-        if (!userId.isNullOrBlank() && !filters.query.isNullOrBlank()) {
+        val cleanQuery = filters.query?.trim()
+
+        // FIX ROBUSTEZZA: Il try-catch DEVE essere qui, all'esterno della transazione REQUIRES_NEW.
+        // Se UltimaRicercaService fallisce, lancia un'eccezione che noi catturiamo qui.
+        // In questo modo la transazione principale (searchImmobili) rimane PULITA e i risultati vengono restituiti.
+        if (!userId.isNullOrBlank() && !cleanQuery.isNullOrBlank()) {
             try {
-                ultimaRicercaService.salvaRicerca(filters.query, userId)
+                ultimaRicercaService.salvaRicerca(cleanQuery, userId)
             } catch (e: Exception) {
-                println("ATTENZIONE: Impossibile salvare la cronologia ricerca. Errore: ${e.message}")
-                // Non rilanciamo l'eccezione, continuiamo con la ricerca!
+                // Logghiamo solo, non blocchiamo l'utente
+                println("NON-BLOCKING ERROR: Impossibile salvare cronologia: ${e.message}")
             }
         }
 
-        val immobili = if (filters.lat != null && filters.lon != null && filters.radiusKm != null) {
-            val idsVicini = redisGeoService.findNearbyImmobiliIds(filters.lat, filters.lon, filters.radiusKm)
+        val cleanFilters = filters.copy(query = cleanQuery)
+
+        val immobili = if (cleanFilters.lat != null && cleanFilters.lon != null && cleanFilters.radiusKm != null) {
+            val idsVicini = redisGeoService.findNearbyImmobiliIds(cleanFilters.lat, cleanFilters.lon, cleanFilters.radiusKm)
 
             if (idsVicini.isEmpty()) {
                 emptyList()
@@ -76,13 +75,13 @@ class ImmobileService(
                 val allInZone = immobileRepository.findAllById(uuidList)
 
                 allInZone.filter { entity ->
-                    (filters.tipoVendita == null || entity.tipoVendita == filters.tipoVendita) &&
-                            (filters.minPrezzo == null || (entity.prezzo ?: 0) >= filters.minPrezzo) &&
-                            (filters.maxPrezzo == null || (entity.prezzo ?: 0) <= filters.maxPrezzo)
+                    (cleanFilters.tipoVendita == null || entity.tipoVendita == cleanFilters.tipoVendita) &&
+                            (cleanFilters.minPrezzo == null || (entity.prezzo ?: 0) >= cleanFilters.minPrezzo) &&
+                            (cleanFilters.maxPrezzo == null || (entity.prezzo ?: 0) <= cleanFilters.maxPrezzo)
                 }
             }
         } else {
-            val spec = ImmobileSpecification(filters)
+            val spec = ImmobileSpecification(cleanFilters)
             immobileRepository.findAll(spec)
         }
 

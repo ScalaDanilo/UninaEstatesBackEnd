@@ -1,5 +1,6 @@
 package com.dieti.backend.entity
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import java.util.UUID
 
@@ -8,18 +9,23 @@ import java.util.UUID
 class AgenteEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val uuid: UUID? = null,
+    var uuid: UUID? = null,
 
-    val nome: String,
-    val cognome: String,
-    @Column(unique = true)
-    val email: String,
-    val password: String,
+    var nome: String,
+    var cognome: String,
 
-    // --- CORREZIONE QUI ---
-    // Il nome della variabile DEVE essere "agenzia" perché nell'altra classe
-    // hai usato mappedBy = "agenzia"
+    @Column(unique = true, nullable = false)
+    var email: String,
+
+    var password: String,
+
+    // Flag booleano per il ruolo (Capo Agenzia vs Agente Semplice)
+    @Column(name = "is_capo")
+    var isCapo: Boolean = false,
+
+    // Relazione: Ogni agente appartiene a 1 agenzia
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "agenzia_id")
-    var agenzia: AgenziaEntity? = null
+    @JoinColumn(name = "agenzia_id", nullable = false)
+    @JsonIgnore
+    var agenzia: AgenziaEntity
 )
