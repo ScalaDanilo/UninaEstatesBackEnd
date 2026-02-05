@@ -15,6 +15,21 @@ class AgenteService(
     private val passwordEncoder: PasswordEncoder
 ) {
 
+  @Transactional(readOnly = true)
+    fun getAgenteById(uuid: UUID): AgenteEntity {
+        val agente = agenteRepository.findById(uuid).orElseThrow {
+            RuntimeException("Agente non trovato con ID: $uuid")
+        }
+
+        // FIX LAZY LOADING:
+        // L'entità Agente ha @ManyToOne(fetch = FetchType.LAZY) su 'agenzia'.
+        // Dobbiamo inizializzarla qui, altrimenti quando il DTO proverà a leggere
+        // 'agenzia.nome', la sessione sarà chiusa e crasherà.
+        Hibernate.initialize(agente.agenzia)
+
+        return agente
+    }
+    
     @Transactional
     fun creaAgente(request: CreateAgenteRequest): AgenteEntity {
         val agenzia = agenziaRepository.findById(request.agenziaId)

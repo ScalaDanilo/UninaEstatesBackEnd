@@ -169,14 +169,20 @@ data class UtenteRegistrazioneRequest(
     val telefono: String?
 )
 
+// --- MODIFICA: Aggiunto campo 'ruolo' ---
 data class UtenteResponseDTO(
     val id: String,
     val nome: String,
     val cognome: String,
     val email: String,
     val telefono: String?,
-    // Usiamo il DTO semplificato per la lista preferiti
-    val preferiti: List<ImmobileSummaryDTO> = emptyList()
+    val ruolo: String, // "UTENTE" o "MANAGER"
+
+    // Lista preferiti (popolata solo se UTENTE)
+    val preferiti: List<ImmobileSummaryDTO> = emptyList(),
+
+    // Campo specifico per MANAGER (nullo se UTENTE)
+    val agenziaNome: String? = null
 )
 
 data class UserUpdateRequest(
@@ -216,6 +222,7 @@ fun UtenteRegistratoEntity.toDto(): UtenteResponseDTO {
         cognome = this.cognome,
         email = this.email,
         telefono = this.telefono,
+        ruolo = "UTENTE",
         // Mappiamo i preferiti usando la funzione toSummaryDto
         preferiti = this.preferiti.map { it.toSummaryDto() }
     )
@@ -356,6 +363,33 @@ data class AdminLoginResponse(
     val role: String
 )
 
+// --- MAPPER AGENTE (Ruolo = MANAGER) ---
+// Usiamo questo per il Login, così il Frontend riceve lo stesso tipo di oggetto
+fun AgenteEntity.toDto(): UtenteResponseDTO {
+    return UtenteResponseDTO(
+        id = this.uuid.toString(),
+        nome = this.nome,
+        cognome = this.cognome,
+        email = this.email,
+        telefono = null,
+        ruolo = "MANAGER",
+        preferiti = emptyList(),
+        // Qui mappiamo il nome dell'agenzia
+        agenziaNome = this.agenzia?.nome ?: "Agenzia Sconosciuta"
+    )
+}
+
+// --- MAPPER SPECIFICO AGENTE ---
+// Usiamo questo per il controller specifico AgenteController (GET /api/agenti/{id})
+fun AgenteEntity.toDTO(): AgenteDTO {
+    return AgenteDTO(
+        id = this.uuid.toString(),
+        nome = this.nome,
+        cognome = this.cognome,
+        email = this.email,
+        agenziaNome = this.agenzia?.nome ?: "Agenzia Sconosciuta"
+    )
+}
 data class CreateAgenziaRequest(
     val nome: String,
     val indirizzo: String,

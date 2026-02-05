@@ -5,6 +5,7 @@ import com.dieti.backend.dto.UtenteRegistrazioneRequest
 import com.dieti.backend.dto.UtenteResponseDTO
 import com.dieti.backend.dto.toDto
 import com.dieti.backend.dto.toEntity
+import com.dieti.backend.repository.AgenteRepository
 import com.dieti.backend.repository.UtenteRepository
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -13,38 +14,49 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class AuthService(
     private val utenteRepository: UtenteRepository,
+    private val agenteRepository: AgenteRepository, // Iniettiamo il repo agenti
     private val passwordEncoder: PasswordEncoder
 ) {
+
     @Transactional
     fun registraUtente(request: UtenteRegistrazioneRequest): UtenteResponseDTO {
-        // 1. Controllo validità
-        if (utenteRepository.existsByEmail(request.email)) {
+        // La registrazione crea SOLO Utenti normali
+        if (utenteRepository.existsByEmail(request.email) || agenteRepository.findByEmail(request.email) != null) {
             throw RuntimeException("Email già registrata!")
-            // In un'app reale useresti un'eccezione personalizzata (es. 409 Conflict)
         }
 
-        // 2. Conversione DTO -> Entity (con password criptata)
         val nuovaEntity = request.toEntity(passwordEncoder)
-
-        // 3. Salvataggio nel DB
         val entitySalvata = utenteRepository.save(nuovaEntity)
-
-        // 4. Conversione Entity -> DTO (senza password) per la risposta
         return entitySalvata.toDto()
     }
+
     @Transactional(readOnly = true)
     fun login(request: LoginRequest): UtenteResponseDTO {
-        val utente = utenteRepository.findByEmail(request.email)
-            ?: throw RuntimeException("Email non trovata") // Questo genererebbe errore 500
+        println("DEBUG LOGIN: Tentativo per ${request.email}")
 
-        // DEBUG: Stampa per vedere cosa succede
-        println("DEBUG PASSWORD: DB=${utente.password} vs INPUT=${request.password}")
-
-        if (!passwordEncoder.matches(request.password, utente.password)) {
-            println("DEBUG: Password non corrispondono!")
-            throw RuntimeException("Password errata") // Genera errore 500
+        // 1. CONTROLLO TABELLA AGENTI (Priorità Manager)
+        val agente = agenteRepository.findByEmail(request.email)
+        if (agente != null) {
+            if (passwordEncoder.matches(request.password, agente.password)) {
+                println("DEBUG LOGIN: Accesso effettuato come MANAGER")
+                return agente.toDto() // Restituisce ruolo "MANAGER"
+            } else {
+                throw RuntimeException("Password errata")
+            }
         }
 
-        return utente.toDto()
+        // 2. CONTROLLO TABELLA UTENTI (Se non è agente)
+        val utente = utenteRepository.findByEmail(request.email)
+        if (utente != null) {
+            if (passwordEncoder.matches(request.password, utente.password)) {
+                println("DEBUG LOGIN: Accesso effettuato come UTENTE")
+                return utente.toDto() // Restituisce ruolo "UTENTE"
+            } else {
+                throw RuntimeException("Password errata")
+            }
+        }
+
+        // 3. NESSUNO DEI DUE
+        throw RuntimeException("Email non trovata")
     }
 }
