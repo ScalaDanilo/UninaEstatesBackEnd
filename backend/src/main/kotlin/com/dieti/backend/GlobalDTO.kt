@@ -375,7 +375,7 @@ fun AgenteEntity.toDto(): UtenteResponseDTO {
         ruolo = "MANAGER",
         preferiti = emptyList(),
         // Qui mappiamo il nome dell'agenzia
-        agenziaNome = this.agenzia?.nome ?: "Agenzia Sconosciuta"
+        agenziaNome = this.agenzia.nome
     )
 }
 
@@ -387,7 +387,8 @@ fun AgenteEntity.toDTO(): AgenteDTO {
         nome = this.nome,
         cognome = this.cognome,
         email = this.email,
-        agenziaNome = this.agenzia?.nome ?: "Agenzia Sconosciuta"
+        agenziaNome = this.agenzia.nome,
+        isCapo = this.isCapo
     )
 }
 data class CreateAgenziaRequest(

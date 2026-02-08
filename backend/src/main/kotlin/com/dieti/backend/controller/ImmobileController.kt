@@ -4,6 +4,7 @@ import com.dieti.backend.dto.ImmobileCreateRequest
 import com.dieti.backend.dto.ImmobileDTO
 import com.dieti.backend.dto.ImmobileSearchFilters
 import com.dieti.backend.service.ImmobileService
+import jakarta.persistence.EntityNotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -37,12 +38,27 @@ class ImmobileController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val emailUtente = authentication.name
+            val emailUtente = authentication.name // Qui arriva l'email dell'agente loggato
             val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, emailUtente)
             ResponseEntity.status(HttpStatus.CREATED).body(nuovoImmobile)
         } catch (e: Exception) {
             e.printStackTrace()
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore server: ${e.message}")
+        }
+    }
+
+    /**
+     * Endpoint chiamato dalla schermata "I tuoi immobili" del Manager.
+     */
+    @GetMapping("/agente/{id}")
+    fun getImmobiliByAgente(@PathVariable id: String): ResponseEntity<*> {
+        return try {
+            // Chiamiamo il metodo FIXATO che usa l'email come ponte
+            val immobili = immobileService.getImmobiliByAgenteId(id)
+            ResponseEntity.ok(immobili)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore: ${e.message}")
         }
     }
 
@@ -100,6 +116,40 @@ class ImmobileController(
             ResponseEntity.ok(immobile)
         } catch (e: Exception) {
             ResponseEntity.notFound().build()
+        }
+    }
+
+    @PutMapping("/{id}")
+    fun updateImmobile(
+        @PathVariable id: String,
+        @RequestBody immobileRequest: ImmobileCreateRequest,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            val updated = immobileService.aggiornaImmobile(id, immobileRequest, emailUtente)
+            ResponseEntity.ok(updated)
+        } catch (e: EntityNotFoundException) {
+            ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore aggiornamento: ${e.message}")
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    fun deleteImmobile(
+        @PathVariable id: String,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            immobileService.cancellaImmobile(id, emailUtente)
+            ResponseEntity.ok("Immobile cancellato con successo")
+        } catch (e: EntityNotFoundException) {
+            ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore cancellazione")
         }
     }
 }

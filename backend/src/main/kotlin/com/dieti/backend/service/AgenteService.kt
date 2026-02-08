@@ -4,9 +4,11 @@ import com.dieti.backend.dto.CreateAgenteRequest
 import com.dieti.backend.entity.AgenteEntity
 import com.dieti.backend.repository.AgenteRepository
 import com.dieti.backend.repository.AgenziaRepository
+import org.hibernate.Hibernate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.util.UUID
 
 @Service
 class AgenteService(
@@ -15,7 +17,7 @@ class AgenteService(
     private val passwordEncoder: PasswordEncoder
 ) {
 
-  @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     fun getAgenteById(uuid: UUID): AgenteEntity {
         val agente = agenteRepository.findById(uuid).orElseThrow {
             RuntimeException("Agente non trovato con ID: $uuid")

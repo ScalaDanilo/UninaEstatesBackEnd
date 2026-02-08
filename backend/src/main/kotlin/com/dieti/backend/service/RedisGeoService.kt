@@ -25,6 +25,19 @@ class RedisGeoService(
         }
     }
 
+    /**
+     * METODO AGGIUNTO
+     * Rimuove un immobile dall'indice geospaziale.
+     * I dati Geo in Redis sono implementati come ZSet, quindi usiamo ZRem.
+     */
+    fun removeLocation(immobileId: String) {
+        try {
+            redisTemplate.opsForZSet().remove(KEY_IMMOBILI_GEO, immobileId)
+        } catch (e: Exception) {
+            println("Errore Redis Geo Remove: ${e.message}")
+        }
+    }
+
     fun findNearbyImmobiliIds(lat: Double, lon: Double, radiusKm: Double): List<String> {
         return try {
             val circle = Circle(Point(lon, lat), Distance(radiusKm, Metrics.KILOMETERS))
