@@ -4,7 +4,6 @@ import com.dieti.backend.dto.ImmobileCreateRequest
 import com.dieti.backend.dto.ImmobileDTO
 import com.dieti.backend.dto.ImmobileSearchFilters
 import com.dieti.backend.service.ImmobileService
-import jakarta.persistence.EntityNotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -18,15 +17,9 @@ class ImmobileController(
     private val immobileService: ImmobileService
 ) {
 
-    /**
-     * ENDPOINT MANCANTE AGGIUNTO
-     * Restituisce i suggerimenti per l'autocompletamento dei comuni.
-     */
     @GetMapping("/cities")
     fun getSuggestedCities(@RequestParam query: String): ResponseEntity<List<String>> {
-        // Evita query troppo corte per non sovraccaricare
         if (query.length < 2) return ResponseEntity.ok(emptyList())
-
         val suggestions = immobileService.getSuggestedCities(query)
         return ResponseEntity.ok(suggestions)
     }
@@ -38,27 +31,12 @@ class ImmobileController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val emailUtente = authentication.name // Qui arriva l'email dell'agente loggato
+            val emailUtente = authentication.name
             val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, emailUtente)
             ResponseEntity.status(HttpStatus.CREATED).body(nuovoImmobile)
         } catch (e: Exception) {
             e.printStackTrace()
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore server: ${e.message}")
-        }
-    }
-
-    /**
-     * Endpoint chiamato dalla schermata "I tuoi immobili" del Manager.
-     */
-    @GetMapping("/agente/{id}")
-    fun getImmobiliByAgente(@PathVariable id: String): ResponseEntity<*> {
-        return try {
-            // Chiamiamo il metodo FIXATO che usa l'email come ponte
-            val immobili = immobileService.getImmobiliByAgenteId(id)
-            ResponseEntity.ok(immobili)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore: ${e.message}")
         }
     }
 
@@ -70,6 +48,8 @@ class ImmobileController(
         @RequestParam(required = false) maxPrezzo: Int?,
         @RequestParam(required = false) minMq: Int?,
         @RequestParam(required = false) maxMq: Int?,
+        @RequestParam(required = false) minStanze: Int?, // AGGIUNTO
+        @RequestParam(required = false) maxStanze: Int?, // AGGIUNTO
         @RequestParam(required = false) bagni: Int?,
         @RequestParam(required = false) condizione: String?,
         // Parametri per ricerca Geo
@@ -80,7 +60,7 @@ class ImmobileController(
     ): List<ImmobileDTO> {
 
         println("=== GET /api/immobili RICHIESTA RICEVUTA ===")
-        println("Query params: q=$query, vendita=$tipoVendita")
+        println("Params: q=$query, vendita=$tipoVendita, p=$minPrezzo-$maxPrezzo, mq=$minMq-$maxMq, cond=$condizione")
 
         val filters = ImmobileSearchFilters(
             query = query,
@@ -89,6 +69,8 @@ class ImmobileController(
             maxPrezzo = maxPrezzo,
             minMq = minMq,
             maxMq = maxMq,
+            minStanze = minStanze,
+            maxStanze = maxStanze,
             bagni = bagni,
             condizione = condizione,
             lat = lat,
