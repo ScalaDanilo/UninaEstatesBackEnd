@@ -100,4 +100,72 @@ class ImmobileController(
             ResponseEntity.notFound().build()
         }
     }
+
+    @PutMapping("/{id}")
+    fun updateImmobile(
+        @PathVariable id: String,
+        @RequestBody immobileRequest: ImmobileCreateRequest,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            val updated = immobileService.aggiornaImmobile(id, immobileRequest, emailUtente)
+            ResponseEntity.ok(updated)
+        } catch (e: EntityNotFoundException) {
+            ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore aggiornamento: ${e.message}")
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    fun deleteImmobile(
+        @PathVariable id: String,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            immobileService.cancellaImmobile(id, emailUtente)
+            ResponseEntity.ok("Immobile cancellato con successo")
+        } catch (e: EntityNotFoundException) {
+            ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore cancellazione")
+        }
+    }
+
+    // --- NUOVI ENDPOINT MANCANTI AGGIUNTI QUI ---
+
+    @PostMapping(path = ["/{id}/immagini"], consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun aggiungiImmagini(
+        @PathVariable id: String,
+        @RequestPart("immagini") immagini: List<MultipartFile>,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            // Chiama il metodo che abbiamo aggiunto nel Service nel passaggio precedente
+            val immobileAggiornato = immobileService.aggiungiImmagini(id, immagini, emailUtente)
+            ResponseEntity.ok(immobileAggiornato)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore upload: ${e.message}")
+        }
+    }
+
+    @DeleteMapping("/immagini/{imageId}")
+    fun eliminaImmagine(
+        @PathVariable imageId: Int,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            immobileService.eliminaImmagine(imageId, emailUtente)
+            ResponseEntity.ok().build<Any>()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore eliminazione: ${e.message}")
+        }
+    }
 }
