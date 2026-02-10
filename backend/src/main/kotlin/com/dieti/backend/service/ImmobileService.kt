@@ -6,13 +6,13 @@ import com.dieti.backend.repository.ImmobileSpecification
 import com.dieti.backend.repository.ImmobileRepository
 import com.dieti.backend.repository.UtenteRepository
 import com.dieti.backend.repository.ImmagineRepository
-import com.dieti.backend.repository.AgenteRepository // Necessario per il fix
 import jakarta.persistence.EntityNotFoundException
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import java.util.UUID
 
 @Service
@@ -20,7 +20,6 @@ class ImmobileService(
     private val immobileRepository: ImmobileRepository,
     private val utenteRepository: UtenteRepository,
     private val immagineRepository: ImmagineRepository,
-    private val agenteRepository: AgenteRepository, // Iniettiamo il repository agenti
     private val ultimaRicercaService: UltimaRicercaService,
     private val geoapifyService: GeoapifyService,
     private val redisGeoService: RedisGeoService
@@ -52,20 +51,17 @@ class ImmobileService(
     fun searchImmobili(filters: ImmobileSearchFilters, userId: String?): List<ImmobileDTO> {
         val cleanQuery = filters.query?.trim()
 
-        // FIX ROBUSTEZZA: Il try-catch DEVE essere qui, all'esterno della transazione REQUIRES_NEW.
-        // Se UltimaRicercaService fallisce, lancia un'eccezione che noi catturiamo qui.
-        // In questo modo la transazione principale (searchImmobili) rimane PULITA e i risultati vengono restituiti.
         if (!userId.isNullOrBlank() && !cleanQuery.isNullOrBlank()) {
             try {
                 ultimaRicercaService.salvaRicerca(cleanQuery, userId)
             } catch (e: Exception) {
-                // Logghiamo solo, non blocchiamo l'utente
                 println("NON-BLOCKING ERROR: Impossibile salvare cronologia: ${e.message}")
             }
         }
 
         val cleanFilters = filters.copy(query = cleanQuery)
 
+        // LOGICA RICERCA GEOGRAFICA + FILTRI
         val immobili = if (cleanFilters.lat != null && cleanFilters.lon != null && cleanFilters.radiusKm != null) {
             val idsVicini = redisGeoService.findNearbyImmobiliIds(cleanFilters.lat, cleanFilters.lon, cleanFilters.radiusKm)
 
@@ -75,13 +71,25 @@ class ImmobileService(
                 val uuidList = idsVicini.map { UUID.fromString(it) }
                 val allInZone = immobileRepository.findAllById(uuidList)
 
+                // FIX: Applicazione rigorosa di TUTTI i filtri in memoria sui risultati Geo
                 allInZone.filter { entity ->
+                    // Filtro Tipo Vendita
                     (cleanFilters.tipoVendita == null || entity.tipoVendita == cleanFilters.tipoVendita) &&
+                            // Filtro Prezzo
                             (cleanFilters.minPrezzo == null || (entity.prezzo ?: 0) >= cleanFilters.minPrezzo) &&
-                            (cleanFilters.maxPrezzo == null || (entity.prezzo ?: 0) <= cleanFilters.maxPrezzo)
+                            (cleanFilters.maxPrezzo == null || (entity.prezzo ?: 0) <= cleanFilters.maxPrezzo) &&
+                            // Filtro Superficie (MQ)
+                            (cleanFilters.minMq == null || (entity.mq ?: 0) >= cleanFilters.minMq) &&
+                            (cleanFilters.maxMq == null || (entity.mq ?: 0) <= cleanFilters.maxMq) &&
+                            // Filtro Condizione/Stato (es. "Nuovo", "Da ristrutturare")
+                            (cleanFilters.condizione.isNullOrBlank() || entity.statoProprieta.equals(cleanFilters.condizione, ignoreCase = true)) &&
+                            // Filtro Bagni (Calcolato sommando gli ambienti "bagno")
+                            (cleanFilters.bagni == null || calculateBathrooms(entity) >= cleanFilters.bagni)
+                    // Nota: Stanze non implementato qui per semplicità, ma se necessario si può aggiungere logica simile ai bagni
                 }
             }
         } else {
+            // LOGICA RICERCA STANDARD (JPA Specification)
             val spec = ImmobileSpecification(cleanFilters)
             immobileRepository.findAll(spec)
         }
@@ -89,71 +97,119 @@ class ImmobileService(
         return immobili.map { it.toDto() }
     }
 
+    // Helper per calcolare i bagni in memoria
+    private fun calculateBathrooms(entity: ImmobileEntity): Int {
+        return entity.ambienti
+            .filter { it.tipologia != null && it.tipologia!!.contains("bagno", ignoreCase = true) }
+            .sumOf { it.numero ?: 1 }
+    }
+
+    @Transactional
     fun creaImmobile(
         request: ImmobileCreateRequest,
         files: List<MultipartFile>?,
         emailUtente: String
     ): ImmobileDTO {
-        // Qui il sistema trova l'UtenteRegistrato associato all'email dell'agente.
-        // Se l'agente ha fatto il login, esiste un record UtenteRegistrato con la stessa email.
-        val proprietario = utenteRepository.findByEmail(emailUtente)
-            ?: throw EntityNotFoundException("Utente proprietario non trovato per email: $emailUtente")
 
-        // ... (Logica di parsing date e coordinate invariata) ...
+        val proprietario = utenteRepository.findByEmail(emailUtente)
+            ?: throw EntityNotFoundException("Utente non trovato: $emailUtente")
+
         var parsedDate: LocalDate? = null
         if (!request.annoCostruzione.isNullOrBlank()) {
-            try { parsedDate = LocalDate.parse(request.annoCostruzione) } catch (e: Exception) {}
+            val dataStr = request.annoCostruzione
+            if (dataStr != null) {
+                try {
+                    parsedDate = LocalDate.parse(dataStr)
+                } catch (e: DateTimeParseException) {
+                    if (dataStr.length == 4 && dataStr.all { it.isDigit() }) {
+                        try {
+                            parsedDate = LocalDate.of(dataStr.toInt(), 1, 1)
+                        } catch (ignore: Exception) {}
+                    }
+                }
+            }
         }
 
-        // Creazione Entity
-        val immobileEntity = request.toEntity(proprietario)
-        // Imposta località se non presente nel request (fallback)
-        if (immobileEntity.localita.isNullOrBlank()) immobileEntity.localita = "Non specificato"
+        var lat: Double? = null
+        var lon: Double? = null
+        var parks = false
+        var schools = false
+        var transport = false
+        var comuneFinale: String = request.localita ?: "Non specificato"
 
-        // ... (Logica Geoapify opzionale qui) ...
+        if (!request.indirizzo.isNullOrBlank()) {
+            val coords = geoapifyService.getCoordinates(request.indirizzo, request.localita)
+            if (coords != null) {
+                lat = coords.lat
+                lon = coords.lon
+                if (!coords.city.isNullOrBlank()) comuneFinale = coords.city
+                val amenities = geoapifyService.checkAmenities(lat, lon)
+                parks = amenities.hasParks
+                schools = amenities.hasSchools
+                transport = amenities.hasPublicTransport
+            }
+        }
+
+        val immobileEntity = ImmobileEntity(
+            proprietario = proprietario,
+            tipoVendita = request.tipoVendita,
+            categoria = request.categoria,
+            indirizzo = request.indirizzo,
+            localita = comuneFinale,
+            mq = request.mq,
+            piano = request.piano,
+            ascensore = request.ascensore,
+            arredamento = request.arredamento,
+            climatizzazione = request.climatizzazione,
+            esposizione = request.esposizione,
+            statoProprieta = request.statoProprieta,
+            annoCostruzione = parsedDate,
+            prezzo = request.prezzo,
+            speseCondominiali = request.speseCondominiali,
+            descrizione = request.descrizione,
+            lat = lat,
+            long = lon,
+            parco = parks,
+            scuola = schools,
+            servizioPubblico = transport
+        )
 
         val savedImmobile = immobileRepository.save(immobileEntity)
 
-        // ... (Salvataggio immagini e ambienti invariato) ...
+        if (lat != null && lon != null) {
+            redisGeoService.addLocation(savedImmobile.uuid.toString(), lat, lon)
+        }
+        if (comuneFinale != "Non specificato") {
+            redisGeoService.addCity(comuneFinale)
+        }
+
         if (!files.isNullOrEmpty()) {
-            val images = files.map {
-                ImmagineEntity(immobile = savedImmobile, nome = it.originalFilename, formato = it.contentType, immagine = it.bytes)
+            val imageEntities = files.map { file ->
+                val fileBytes: ByteArray = file.bytes
+                ImmagineEntity(
+                    immobile = savedImmobile,
+                    nome = file.originalFilename,
+                    formato = file.contentType,
+                    immagine = fileBytes
+                )
             }
-            immagineRepository.saveAll(images)
-            savedImmobile.immagini.addAll(images)
+            immagineRepository.saveAll(imageEntities)
+            savedImmobile.immagini.addAll(imageEntities)
         }
 
         if (request.ambienti.isNotEmpty()) {
-            val amb = request.ambienti.map { AmbienteEntity(immobile=savedImmobile, tipologia=it.tipologia, numero=it.numero) }
-            savedImmobile.ambienti.addAll(amb)
+            val ambienteEntities = request.ambienti.map { dto ->
+                AmbienteEntity(
+                    immobile = savedImmobile,
+                    tipologia = dto.tipologia,
+                    numero = dto.numero
+                )
+            }
+            savedImmobile.ambienti.addAll(ambienteEntities)
             immobileRepository.save(savedImmobile)
         }
 
         return savedImmobile.toDto()
-    }
-
-    /**
-     * FIX CRITICO: Recupera gli immobili creati da un Agente.
-     * Poiché l'Agente e l'Utente sono su tabelle diverse ma condividono l'email,
-     * facciamo il ponte tramite l'email.
-     */
-    @Transactional(readOnly = true)
-    fun getImmobiliByAgenteId(agenteIdStr: String): List<ImmobileDTO> {
-        val agenteUuid = UUID.fromString(agenteIdStr)
-
-        // 1. Troviamo l'Agente
-        val agente = agenteRepository.findById(agenteUuid).orElseThrow {
-            EntityNotFoundException("Agente non trovato")
-        }
-
-        // 2. Troviamo l'Utente "ombra" che possiede fisicamente gli immobili
-        val utenteProprietario = utenteRepository.findByEmail(agente.email)
-            ?: return emptyList() // Se non c'è un utente collegato, non ha immobili
-
-        // 3. Recuperiamo gli immobili usando l'UUID dell'Utente, non dell'Agente
-        val immobili = immobileRepository.findAllByProprietarioUuid(utenteProprietario.uuid!!)
-
-        return immobili.map { it.toDto() }
     }
 
     @Transactional(readOnly = true)
@@ -168,52 +224,4 @@ class ImmobileService(
             ?: throw EntityNotFoundException("Immobile non trovato")
         return entity.toDto()
     }
-
-    @Transactional
-    fun aggiornaImmobile(id: String, request: ImmobileCreateRequest, emailUtente: String): ImmobileDTO {
-        val uuid = UUID.fromString(id)
-
-        // Verifica che l'immobile esista e appartenga all'utente loggato
-        val immobile = immobileRepository.findByUuidAndOwnerEmail(uuid, emailUtente)
-            ?: throw EntityNotFoundException("Immobile non trovato o non autorizzato per la modifica")
-
-        // Aggiornamento campi semplici
-        immobile.prezzo = request.prezzo
-        immobile.descrizione = request.descrizione
-        immobile.mq = request.mq
-        immobile.piano = request.piano
-        immobile.speseCondominiali = request.speseCondominiali
-        immobile.arredamento = request.arredamento
-        immobile.statoProprieta = request.statoProprieta
-        // Nota: Le coordinate e l'indirizzo andrebbero ricalcolati con Geoapify se cambiano,
-        // per semplicità qui aggiorniamo solo i dati testuali/numerici.
-
-        // Aggiornamento Ambienti (Svuota e ripopola)
-        if (request.ambienti.isNotEmpty()) {
-            immobile.ambienti.clear()
-            val nuoviAmbienti = request.ambienti.map { dto ->
-                AmbienteEntity(
-                    immobile = immobile,
-                    tipologia = dto.tipologia,
-                    numero = dto.numero
-                )
-            }
-            immobile.ambienti.addAll(nuoviAmbienti)
-        }
-
-        return immobileRepository.save(immobile).toDto()
-    }
-
-    @Transactional
-    fun cancellaImmobile(id: String, emailUtente: String) {
-        val uuid = UUID.fromString(id)
-        val immobile = immobileRepository.findByUuidAndOwnerEmail(uuid, emailUtente)
-            ?: throw EntityNotFoundException("Immobile non trovato o non autorizzato")
-
-        // Rimuovi anche da Redis Geo se necessario
-        redisGeoService.removeLocation(id)
-
-        immobileRepository.delete(immobile)
-    }
 }
-
