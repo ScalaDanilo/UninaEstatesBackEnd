@@ -89,32 +89,25 @@ class ImmobileService(
         return immobili.map { it.toDto() }
     }
 
+    @Transactional
     fun creaImmobile(
         request: ImmobileCreateRequest,
         files: List<MultipartFile>?,
         emailUtente: String
     ): ImmobileDTO {
-        // Qui il sistema trova l'UtenteRegistrato associato all'email dell'agente.
-        // Se l'agente ha fatto il login, esiste un record UtenteRegistrato con la stessa email.
         val proprietario = utenteRepository.findByEmail(emailUtente)
             ?: throw EntityNotFoundException("Utente proprietario non trovato per email: $emailUtente")
 
-        // ... (Logica di parsing date e coordinate invariata) ...
         var parsedDate: LocalDate? = null
         if (!request.annoCostruzione.isNullOrBlank()) {
             try { parsedDate = LocalDate.parse(request.annoCostruzione) } catch (e: Exception) {}
         }
 
-        // Creazione Entity
         val immobileEntity = request.toEntity(proprietario)
-        // Imposta località se non presente nel request (fallback)
         if (immobileEntity.localita.isNullOrBlank()) immobileEntity.localita = "Non specificato"
-
-        // ... (Logica Geoapify opzionale qui) ...
 
         val savedImmobile = immobileRepository.save(immobileEntity)
 
-        // ... (Salvataggio immagini e ambienti invariato) ...
         if (!files.isNullOrEmpty()) {
             val images = files.map {
                 ImmagineEntity(immobile = savedImmobile, nome = it.originalFilename, formato = it.contentType, immagine = it.bytes)
@@ -132,33 +125,17 @@ class ImmobileService(
         return savedImmobile.toDto()
     }
 
-    /**
-     * FIX CRITICO: Recupera gli immobili creati da un Agente.
-     * Poiché l'Agente e l'Utente sono su tabelle diverse ma condividono l'email,
-     * facciamo il ponte tramite l'email.
-     */
     @Transactional(readOnly = true)
     fun getImmobiliByAgenteId(agenteIdStr: String): List<ImmobileDTO> {
         val agenteUuid = UUID.fromString(agenteIdStr)
-
-        // 1. Troviamo l'Agente
         val agente = agenteRepository.findById(agenteUuid).orElseThrow {
             EntityNotFoundException("Agente non trovato")
         }
-
-        // 2. Troviamo l'Utente "ombra" che possiede fisicamente gli immobili
         val utenteProprietario = utenteRepository.findByEmail(agente.email)
-            ?: return emptyList() // Se non c'è un utente collegato, non ha immobili
+            ?: return emptyList()
 
-        // 3. Recuperiamo gli immobili usando l'UUID dell'Utente, non dell'Agente
         val immobili = immobileRepository.findAllByProprietarioUuid(utenteProprietario.uuid!!)
-
         return immobili.map { it.toDto() }
-    }
-
-    @Transactional(readOnly = true)
-    fun getAllImmobili(): List<ImmobileDTO> {
-        return immobileRepository.findAll().map { it.toDto() }
     }
 
     @Transactional(readOnly = true)
@@ -172,12 +149,10 @@ class ImmobileService(
     @Transactional
     fun aggiornaImmobile(id: String, request: ImmobileCreateRequest, emailUtente: String): ImmobileDTO {
         val uuid = UUID.fromString(id)
-
-        // Verifica che l'immobile esista e appartenga all'utente loggato
+        // Usa il metodo custom del repository per sicurezza
         val immobile = immobileRepository.findByUuidAndOwnerEmail(uuid, emailUtente)
             ?: throw EntityNotFoundException("Immobile non trovato o non autorizzato per la modifica")
 
-        // Aggiornamento campi semplici
         immobile.prezzo = request.prezzo
         immobile.descrizione = request.descrizione
         immobile.mq = request.mq
@@ -185,18 +160,12 @@ class ImmobileService(
         immobile.speseCondominiali = request.speseCondominiali
         immobile.arredamento = request.arredamento
         immobile.statoProprieta = request.statoProprieta
-        // Nota: Le coordinate e l'indirizzo andrebbero ricalcolati con Geoapify se cambiano,
-        // per semplicità qui aggiorniamo solo i dati testuali/numerici.
+        // Aggiungi qui gli altri campi se necessario (ascensore, esposizione, ecc)
 
-        // Aggiornamento Ambienti (Svuota e ripopola)
         if (request.ambienti.isNotEmpty()) {
             immobile.ambienti.clear()
             val nuoviAmbienti = request.ambienti.map { dto ->
-                AmbienteEntity(
-                    immobile = immobile,
-                    tipologia = dto.tipologia,
-                    numero = dto.numero
-                )
+                AmbienteEntity(immobile = immobile, tipologia = dto.tipologia, numero = dto.numero)
             }
             immobile.ambienti.addAll(nuoviAmbienti)
         }
@@ -210,10 +179,57 @@ class ImmobileService(
         val immobile = immobileRepository.findByUuidAndOwnerEmail(uuid, emailUtente)
             ?: throw EntityNotFoundException("Immobile non trovato o non autorizzato")
 
-        // Rimuovi anche da Redis Geo se necessario
         redisGeoService.removeLocation(id)
-
         immobileRepository.delete(immobile)
+    }
+
+    // --- METODI AGGIUNTI PER LE IMMAGINI ---
+
+    @Transactional
+    fun aggiungiImmagini(idImmobile: String, files: List<MultipartFile>, emailUtente: String): ImmobileDTO {
+        val uuid = UUID.fromString(idImmobile)
+
+        // 1. Verifica che l'immobile esista e l'utente sia il proprietario
+        val immobile = immobileRepository.findByUuidAndOwnerEmail(uuid, emailUtente)
+            ?: throw EntityNotFoundException("Immobile non trovato o non sei autorizzato a modificarlo")
+
+        // 2. Salva le nuove immagini
+        if (files.isNotEmpty()) {
+            val nuoveImmagini = files.map { file ->
+                ImmagineEntity(
+                    immobile = immobile,
+                    nome = file.originalFilename,
+                    formato = file.contentType,
+                    immagine = file.bytes
+                )
+            }
+            immagineRepository.saveAll(nuoveImmagini)
+            immobile.immagini.addAll(nuoveImmagini)
+        }
+
+        return immobile.toDto()
+    }
+
+    @Transactional
+    fun eliminaImmagine(idImmagine: Int, emailUtente: String) {
+        // 1. Trova l'immagine usando Int (coerente con ImmagineRepository)
+        val immagine = immagineRepository.findByIdOrNull(idImmagine)
+            ?: throw EntityNotFoundException("Immagine non trovata")
+
+        // 2. Risali all'immobile padre (gestione null safety)
+        val immobile = immagine.immobile
+            ?: throw EntityNotFoundException("Immagine orfana (nessun immobile associato)")
+
+        // 3. Verifica sicurezza: chi richiede l'eliminazione deve essere il proprietario dell'immobile
+        if (immobile.proprietario.email != emailUtente) {
+            throw EntityNotFoundException("Non autorizzato: non sei il proprietario di questo immobile")
+        }
+
+        // 4. Rimuovi dalla lista dell'immobile (per coerenza Hibernate)
+        immobile.immagini.remove(immagine)
+
+        // 5. Cancella dal DB
+        immagineRepository.delete(immagine)
     }
 }
 

@@ -152,4 +152,38 @@ class ImmobileController(
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore cancellazione")
         }
     }
+
+    // --- NUOVI ENDPOINT MANCANTI AGGIUNTI QUI ---
+
+    @PostMapping(path = ["/{id}/immagini"], consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun aggiungiImmagini(
+        @PathVariable id: String,
+        @RequestPart("immagini") immagini: List<MultipartFile>,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            // Chiama il metodo che abbiamo aggiunto nel Service nel passaggio precedente
+            val immobileAggiornato = immobileService.aggiungiImmagini(id, immagini, emailUtente)
+            ResponseEntity.ok(immobileAggiornato)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore upload: ${e.message}")
+        }
+    }
+
+    @DeleteMapping("/immagini/{imageId}")
+    fun eliminaImmagine(
+        @PathVariable imageId: Int,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val emailUtente = authentication.name
+            immobileService.eliminaImmagine(imageId, emailUtente)
+            ResponseEntity.ok().build<Any>()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Errore eliminazione: ${e.message}")
+        }
+    }
 }
