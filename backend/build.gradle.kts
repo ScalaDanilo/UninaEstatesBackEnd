@@ -48,6 +48,7 @@ dependencies {
 
     // Test (Disabilitati per ora)
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("io.mockk:mockk:1.13.10")
 }
 
 // Disabilita i test per evitare blocchi
