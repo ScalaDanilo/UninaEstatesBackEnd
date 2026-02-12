@@ -1,5 +1,6 @@
 package com.dieti.backend.config
 
+import com.dieti.backend.repository.AgenteRepository
 import com.dieti.backend.repository.AmministratoreRepository
 import com.dieti.backend.repository.UtenteRepository
 import jakarta.servlet.FilterChain
@@ -10,11 +11,13 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import java.util.UUID
 
 @Component
 class SimpleAuthFilter(
     private val utenteRepository: UtenteRepository,
-    private val amministratoreRepository: AmministratoreRepository // Aggiunto repository admin
+    private val agenteRepository: AgenteRepository,
+    private val amministratoreRepository: AmministratoreRepository
 ) : OncePerRequestFilter() {
 
     override fun doFilterInternal(
@@ -22,43 +25,59 @@ class SimpleAuthFilter(
         response: HttpServletResponse,
         filterChain: FilterChain
     ) {
-        // 1. Cerchiamo l'header
-        val emailHeader = request.getHeader("X-Auth-Email")
+        val authHeader = request.getHeader("Authorization")
 
-        if (emailHeader != null) {
-            println("DEBUG FILTER: Ricevuta email header: $emailHeader")
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            val token = authHeader.substring(7) // Rimuove "Bearer "
 
-            // 2a. Cerca tra gli UTENTI REGISTRATI
-            val utente = utenteRepository.findByEmail(emailHeader)
+            try {
+                // Il token è l'UUID dell'utente
+                val userId = UUID.fromString(token)
+                println("DEBUG FILTER: Token ricevuto (UUID): $userId")
 
-            if (utente != null) {
-                println("DEBUG FILTER: Utente trovato! ID: ${utente.uuid}")
-                val auth = UsernamePasswordAuthenticationToken(
-                    utente.email,
-                    null,
-                    listOf(SimpleGrantedAuthority("ROLE_USER"))
-                )
-                SecurityContextHolder.getContext().authentication = auth
-            }
-            // 2b. Se non è utente, cerca tra gli AMMINISTRATORI
-            else {
-                val admin = amministratoreRepository.findByEmail(emailHeader)
+                // A. AMMINISTRATORI
+                val admin = amministratoreRepository.findById(userId).orElse(null)
                 if (admin != null) {
-                    println("DEBUG FILTER: Amministratore trovato! ID: ${admin.uuid}")
-                    val auth = UsernamePasswordAuthenticationToken(
-                        admin.email,
-                        null,
-                        listOf(SimpleGrantedAuthority("ROLE_ADMIN"))
-                    )
-                    SecurityContextHolder.getContext().authentication = auth
-                } else {
-                    println("DEBUG FILTER: ATTENZIONE! Nessun account trovato per email: $emailHeader")
+                    setAuthentication(admin.uuid.toString(), "ROLE_ADMIN")
+                    filterChain.doFilter(request, response)
+                    return
                 }
+
+                // B. AGENTI
+                val agente = agenteRepository.findById(userId).orElse(null)
+                if (agente != null) {
+                    setAuthentication(agente.uuid.toString(), "ROLE_MANAGER")
+                    filterChain.doFilter(request, response)
+                    return
+                }
+
+                // C. UTENTI
+                val utente = utenteRepository.findById(userId).orElse(null)
+                if (utente != null) {
+                    setAuthentication(utente.uuid.toString(), "ROLE_USER")
+                    filterChain.doFilter(request, response)
+                    return
+                }
+
+                println("DEBUG FILTER: Nessun utente trovato per l'ID: $userId")
+
+            } catch (e: IllegalArgumentException) {
+                println("DEBUG FILTER: Token non valido (non è un UUID): $token")
             }
         } else {
-            // println("DEBUG FILTER: Nessun header X-Auth-Email trovato")
+            // println("DEBUG FILTER: Header Authorization mancante o formato errato")
         }
 
         filterChain.doFilter(request, response)
+    }
+
+    private fun setAuthentication(principalId: String, role: String) {
+        println("DEBUG FILTER: Autenticazione OK. ID: $principalId, Ruolo: $role")
+        val auth = UsernamePasswordAuthenticationToken(
+            principalId, // IMPORTANTISSIMO: Il principal ora è l'ID
+            null,
+            listOf(SimpleGrantedAuthority(role))
+        )
+        SecurityContextHolder.getContext().authentication = auth
     }
 }

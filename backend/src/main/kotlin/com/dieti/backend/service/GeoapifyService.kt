@@ -8,12 +8,12 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Service
-class GeoapifyService {
+class GeocodingService {
 
     private val client = OkHttpClient()
     private val mapper = ObjectMapper()
 
-    // TODO: Assicurati che la chiave sia corretta!
+    // API Key di Geoapify (fornita)
     private val apiKey = "4fe4eefe40284c7ebeda92bd33614495"
 
     data class GeoResult(
@@ -28,6 +28,23 @@ class GeoapifyService {
         val hasPublicTransport: Boolean
     )
 
+    /**
+     * Metodo di compatibilità per AgenziaService.
+     * Accetta un singolo indirizzo stringa e restituisce Pair<Double, Double> (Lat, Lon).
+     * Usa 0.0, 0.0 come fallback in caso di errore.
+     */
+    fun getCoordinates(address: String): Pair<Double, Double> {
+        val result = getCoordinates(address, null)
+        return if (result != null) {
+            Pair(result.lat, result.lon)
+        } else {
+            Pair(0.0, 0.0)
+        }
+    }
+
+    /**
+     * Implementazione principale basata su Geoapify.
+     */
     fun getCoordinates(indirizzo: String, localitaInput: String?): GeoResult? {
         try {
             // Costruiamo la query di ricerca
@@ -70,6 +87,7 @@ class GeoapifyService {
                         else -> null
                     }
 
+                    println("Geoapify Success: $searchText -> ($lat, $lon)")
                     return GeoResult(lat, lon, city)
                 }
             }

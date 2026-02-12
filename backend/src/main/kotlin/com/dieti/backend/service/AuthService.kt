@@ -22,7 +22,6 @@ class AuthService(
 
     @Transactional
     fun registraUtente(request: UtenteRegistrazioneRequest): UtenteResponseDTO {
-        // Controllo duplicati su tutte le tabelle
         if (utenteRepository.existsByEmail(request.email) ||
             agenteRepository.findByEmail(request.email) != null ||
             amministratoreRepository.findByEmail(request.email) != null) {
@@ -31,7 +30,6 @@ class AuthService(
 
         val nuovaEntity = request.toEntity(passwordEncoder)
         val entitySalvata = utenteRepository.save(nuovaEntity)
-        // La registrazione crea sempre un UTENTE base
         return entitySalvata.toDto()
     }
 
@@ -43,14 +41,13 @@ class AuthService(
         val admin = amministratoreRepository.findByEmail(request.email)
         if (admin != null) {
             if (passwordEncoder.matches(request.password, admin.password)) {
-                // Costruiamo il DTO per l'Admin manualmente (o tramite un mapper se lo crei)
                 return UtenteResponseDTO(
-                    id = admin.uuid.toString(), // ID REALE (UUID)
+                    id = admin.uuid.toString(), // Questo ID sarà il token
                     nome = "Amministratore",
                     cognome = "Sistema",
                     email = admin.email,
                     telefono = null,
-                    ruolo = "ADMIN", // RUOLO REALE
+                    ruolo = "ADMIN",
                     preferiti = emptyList(),
                     agenziaNome = null
                 )
@@ -61,8 +58,6 @@ class AuthService(
         val agente = agenteRepository.findByEmail(request.email)
         if (agente != null) {
             if (passwordEncoder.matches(request.password, agente.password)) {
-                // Il metodo toDto() dell'agente deve impostare ruolo = "MANAGER"
-                // e mappare l'agenziaNome
                 return agente.toDto()
             } else throw RuntimeException("Password errata (Agente)")
         }
@@ -71,7 +66,6 @@ class AuthService(
         val utente = utenteRepository.findByEmail(request.email)
         if (utente != null) {
             if (passwordEncoder.matches(request.password, utente.password)) {
-                // Il metodo toDto() dell'utente deve impostare ruolo = "UTENTE"
                 return utente.toDto()
             } else throw RuntimeException("Password errata (Utente)")
         }

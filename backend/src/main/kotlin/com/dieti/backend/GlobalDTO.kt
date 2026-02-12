@@ -3,6 +3,7 @@ package com.dieti.backend.dto
 import com.dieti.backend.entity.*
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.util.UUID
 
 // --- DTO IMMOBILE (Completo per dettagli) ---
@@ -62,7 +63,17 @@ data class ImmobileCreateRequest(
     val prezzo: Int?,
     val speseCondominiali: Int?,
     val descrizione: String?,
-    val ambienti: List<AmbienteDto> = emptyList()
+
+    // --- NUOVI CAMPI FONDAMENTALI PER L'ASSEGNAZIONE ---
+    val lat: Double?,
+    val long: Double?,
+
+    val ambienti: List<AmbienteDto> = emptyList(),
+
+    // Servizi
+    val parco: Boolean = false,
+    val scuola: Boolean = false,
+    val servizioPubblico: Boolean = false
 )
 
 data class ImmagineDto(
@@ -324,22 +335,16 @@ data class AuthResponse(
 )
 
 // --- AGENZIE E AGENTI ---
-
-data class CreateAgenteRequest(
+// FIX: Aggiunto qui per risolvere "Unresolved reference"
+data class CreateAgenziaRequest(
     val nome: String,
-    val cognome: String,
-    val email: String,
-    val password: String,
-    val agenziaId: UUID,
-    val isCapo: Boolean
+    val indirizzo: String,
+    val adminId: String // String per facilitare il passaggio dal JSON
 )
+
+
 
 // DTO per creare un Amministratore (semplificato)
-data class CreateAdminRequest(
-    val email: String,
-    val password: String
-)
-
 // DTO per il cambio password
 data class ChangePasswordRequest(
     val adminId: UUID,
@@ -391,25 +396,133 @@ fun AgenteEntity.toDTO(): AgenteDTO {
         isCapo = this.isCapo
     )
 }
-data class CreateAgenziaRequest(
-    val nome: String,
-    val indirizzo: String,
-    val adminId: UUID // L'admin che crea l'agenzia
-)
 
-// Per popolare la dropdown nel frontend
+
+// DTO per popolare la dropdown delle agenzie nel frontend
 data class AgenziaOptionDTO(
-    val id: String, // UUID come stringa
+    val id: String,
     val nome: String,
-    val haCapo: Boolean // True se l'agenzia ha già un agente con isCapo=true
+    val haCapo: Boolean
 )
 
+// DTO per popolare la dropdown degli amministratori
 data class AdminOptionDTO(
     val id: String,
     val email: String
 )
 
+data class CreateAdminRequest(
+    val email: String,
+    val password: String
+)
+
+data class CreateAgenteRequest(
+    val nome: String,
+    val cognome: String,
+    val email: String,
+    val password: String,
+    val agenziaId: String,
+    val isCapo: Boolean
+)
+
 data class ChangeMyPasswordRequest(
+    val adminId: String? = null,
     val oldPassword: String,
     val newPassword: String
 )
+
+// NUOVO: DTO completo per l'Agenzia (evita il problema LazyInitialization)
+data class AgenziaDTO(
+    val id: String,
+    val nome: String,
+    val indirizzo: String,
+    val lat: Double,
+    val long: Double,
+    // MODIFICA: Restituiamo l'ID dell'admin, più utile per riferimenti programmatici
+    val adminId: String?
+)
+
+data class OffertaRicevutaDTO(
+    val id: String,
+    val nomeOfferente: String,
+    val cognomeOfferente: String,
+    val prezzoOfferto: Int,
+    val immobileId: String,
+    val immobileTitolo: String, // Indirizzo o Località
+    val immobilePrezzoBase: Int,
+    val immagineUrl: String?,
+    val dataOfferta: LocalDateTime // Spring Boot lo serializzerà in ISO String automaticamente
+)
+
+data class RispostaRequest(
+    val offertaId: String,
+    val venditoreId: String, // L'agente che risponde
+    val esito: String, // "ACCETTATA", "RIFIUTATA", "CONTROPROPOSTA"
+    val nuovoPrezzo: Int? = null, // Solo se controproposta
+    val messaggio: String? = null
+)
+
+data class RichiestaDTO(
+    val id: String,
+    val titolo: String,
+    val descrizione: String?,
+    val data: String,
+    val stato: String, // "PENDING", "ACCEPTED", etc.
+    val immagineUrl: String? = null // AGGIUNTO per mostrare la foto nella lista notifiche
+)
+
+data class EsitoRichiestaRequest(
+    val id: String
+)
+
+data class ManagerDashboardStats(
+    val numeroNotifiche: Int,
+    val numeroProposte: Int
+)
+
+// DTO per la lista e il dettaglio rapido
+data class TrattativaSummaryDTO(
+    val offertaId: String,
+    val immobileId: String, // NUOVO
+    val immobileTitolo: String,
+    val immobileIndirizzo: String?,
+    val prezzoOfferto: Int, // NUOVO
+    val nomeOfferente: String, // NUOVO
+    val ultimoStato: String,
+    val ultimaModifica: String,
+    val immagineUrl: String?
+)
+
+data class StoriaTrattativaDTO(
+    val offertaId: String,
+    val prezzoIniziale: Int,
+    val immobileTitolo: String,
+    val cronologia: List<MessaggioTrattativaDTO>,
+    val canUserReply: Boolean
+)
+
+data class MessaggioTrattativaDTO(
+    val autoreNome: String,
+    val isMe: Boolean,
+    val testo: String,
+    val prezzo: Int?,
+    val tipo: String,
+    val data: String
+)
+
+data class UserResponseRequest(
+    val offertaId: String,
+    val utenteId: String,
+    val esito: String,
+    val nuovoPrezzo: Int? = null,
+    val messaggio: String? = null
+)
+
+data class NotificaDTO(
+    val id: String,
+    val titolo: String,
+    val corpo: String,
+    val data: String, // O LocalDateTime se gestito dal serializer
+    val letto: Boolean
+)
+

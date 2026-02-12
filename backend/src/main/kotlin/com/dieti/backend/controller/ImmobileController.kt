@@ -4,6 +4,7 @@ import com.dieti.backend.dto.ImmobileCreateRequest
 import com.dieti.backend.dto.ImmobileDTO
 import com.dieti.backend.dto.ImmobileSearchFilters
 import com.dieti.backend.service.ImmobileService
+import jakarta.persistence.EntityNotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -31,8 +32,9 @@ class ImmobileController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val emailUtente = authentication.name
-            val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, emailUtente)
+            // FIX: authentication.name ora contiene l'UUID (non l'email)
+            val userId = authentication.name
+            val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, userId)
             ResponseEntity.status(HttpStatus.CREATED).body(nuovoImmobile)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -48,11 +50,10 @@ class ImmobileController(
         @RequestParam(required = false) maxPrezzo: Int?,
         @RequestParam(required = false) minMq: Int?,
         @RequestParam(required = false) maxMq: Int?,
-        @RequestParam(required = false) minStanze: Int?, // AGGIUNTO
-        @RequestParam(required = false) maxStanze: Int?, // AGGIUNTO
+        @RequestParam(required = false) minStanze: Int?,
+        @RequestParam(required = false) maxStanze: Int?,
         @RequestParam(required = false) bagni: Int?,
         @RequestParam(required = false) condizione: String?,
-        // Parametri per ricerca Geo
         @RequestParam(required = false) lat: Double?,
         @RequestParam(required = false) lon: Double?,
         @RequestParam(required = false) radiusKm: Double?,
@@ -60,35 +61,14 @@ class ImmobileController(
     ): List<ImmobileDTO> {
 
         println("=== GET /api/immobili RICHIESTA RICEVUTA ===")
-        println("Params: q=$query, vendita=$tipoVendita, p=$minPrezzo-$maxPrezzo, mq=$minMq-$maxMq, cond=$condizione")
-
         val filters = ImmobileSearchFilters(
-            query = query,
-            tipoVendita = tipoVendita,
-            minPrezzo = minPrezzo,
-            maxPrezzo = maxPrezzo,
-            minMq = minMq,
-            maxMq = maxMq,
-            minStanze = minStanze,
-            maxStanze = maxStanze,
-            bagni = bagni,
-            condizione = condizione,
-            lat = lat,
-            lon = lon,
-            radiusKm = radiusKm
+            query = query, tipoVendita = tipoVendita, minPrezzo = minPrezzo, maxPrezzo = maxPrezzo,
+            minMq = minMq, maxMq = maxMq, minStanze = minStanze, maxStanze = maxStanze,
+            bagni = bagni, condizione = condizione, lat = lat, lon = lon, radiusKm = radiusKm
         )
 
-        val userId = authentication?.name
-
-        try {
-            val result = immobileService.searchImmobili(filters, userId)
-            println("=== SUCCESS: Restituisco ${result.size} immobili ===")
-            return result
-        } catch (e: Exception) {
-            println("!!! CRASH DURANTE LA RICERCA !!!")
-            e.printStackTrace()
-            throw e
-        }
+        val userId = authentication?.name // UUID
+        return immobileService.searchImmobili(filters, userId)
     }
 
     @GetMapping("/{id}")
@@ -108,8 +88,8 @@ class ImmobileController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val emailUtente = authentication.name
-            val updated = immobileService.aggiornaImmobile(id, immobileRequest, emailUtente)
+            val userId = authentication.name
+            val updated = immobileService.aggiornaImmobile(id, immobileRequest, userId)
             ResponseEntity.ok(updated)
         } catch (e: EntityNotFoundException) {
             ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
@@ -125,8 +105,8 @@ class ImmobileController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val emailUtente = authentication.name
-            immobileService.cancellaImmobile(id, emailUtente)
+            val userId = authentication.name
+            immobileService.cancellaImmobile(id, userId)
             ResponseEntity.ok("Immobile cancellato con successo")
         } catch (e: EntityNotFoundException) {
             ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
@@ -135,8 +115,6 @@ class ImmobileController(
         }
     }
 
-    // --- NUOVI ENDPOINT MANCANTI AGGIUNTI QUI ---
-
     @PostMapping(path = ["/{id}/immagini"], consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun aggiungiImmagini(
         @PathVariable id: String,
@@ -144,9 +122,8 @@ class ImmobileController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val emailUtente = authentication.name
-            // Chiama il metodo che abbiamo aggiunto nel Service nel passaggio precedente
-            val immobileAggiornato = immobileService.aggiungiImmagini(id, immagini, emailUtente)
+            val userId = authentication.name
+            val immobileAggiornato = immobileService.aggiungiImmagini(id, immagini, userId)
             ResponseEntity.ok(immobileAggiornato)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -160,8 +137,8 @@ class ImmobileController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val emailUtente = authentication.name
-            immobileService.eliminaImmagine(imageId, emailUtente)
+            val userId = authentication.name
+            immobileService.eliminaImmagine(imageId, userId)
             ResponseEntity.ok().build<Any>()
         } catch (e: Exception) {
             e.printStackTrace()

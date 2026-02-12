@@ -2,7 +2,6 @@ package com.dieti.backend.entity
 
 import jakarta.persistence.*
 import java.time.LocalDateTime
-import java.util.UUID
 
 @Entity
 @Table(name = "risposta")
@@ -11,23 +10,29 @@ data class RispostaEntity(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Int? = null,
 
-    @OneToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "offerta_id")
     val offerta: OffertaEntity,
 
+    // MAPPA LOGICA:
+    // Nella tabella Risposta usiamo 'venditore_id' per indicare chi SCRIVE il messaggio (Mittente)
+    // E 'compratore_id' per indicare chi RICEVE il messaggio (Destinatario)
+    // Questo ci permette di fare la chat senza aggiungere colonne nuove.
+
     @ManyToOne
     @JoinColumn(name = "venditore_id")
-    val venditore: UtenteRegistratoEntity,
+    val mittente: UtenteRegistratoEntity,
 
     @ManyToOne
     @JoinColumn(name = "compratore_id")
-    val compratore: UtenteRegistratoEntity,
+    val destinatario: UtenteRegistratoEntity,
 
     @Column(name = "prezzo_offerta")
-    val prezzoOfferta: Int? = null,
+    val prezzoProposto: Int? = null,
+
     val corpo: String? = null,
-    val tipo: String? = null, // Accettata/Rifiutata
-    
+    val tipo: String, // "ACCETTATA", "RIFIUTATA", "CONTROPROPOSTA"
+
     @Column(name = "data_risposta")
     val dataRisposta: LocalDateTime = LocalDateTime.now()
 )

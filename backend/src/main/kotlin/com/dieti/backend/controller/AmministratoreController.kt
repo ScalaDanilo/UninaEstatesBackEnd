@@ -16,9 +16,13 @@ class AmministratoreController(
     private val agenteService: AgenteService,
     private val agenziaService: AgenziaService
 ) {
-    // ... (login, createAdmin esistenti) ...
     @PostMapping("/login")
-    fun login(@RequestBody request: LoginRequest): ResponseEntity<*> { /* ... come prima ... */ return ResponseEntity.ok("Login OK") } // (Semplificato per brevità, usa il tuo codice precedente)
+    fun login(@RequestBody request: LoginRequest): ResponseEntity<*> {
+        return try {
+            val admin = amministratoreService.login(request)
+            ResponseEntity.ok(AdminLoginResponse(admin.uuid.toString(), admin.email, "ADMIN"))
+        } catch (e: Exception) { ResponseEntity.badRequest().body(e.message) }
+    }
 
     @PostMapping("/create-admin")
     fun createAdmin(@RequestBody request: CreateAdminRequest): ResponseEntity<*> {
@@ -28,8 +32,6 @@ class AmministratoreController(
         } catch (e: Exception) { ResponseEntity.badRequest().body(e.message) }
     }
 
-    // --- NUOVI ENDPOINT ---
-
     @GetMapping("/administrators-options")
     fun getAdministratorsOptions(): ResponseEntity<List<AdminOptionDTO>> {
         return ResponseEntity.ok(amministratoreService.getAdministratorsOptions())
@@ -38,10 +40,10 @@ class AmministratoreController(
     @PostMapping("/change-my-password")
     fun changeMyPassword(
         @RequestBody request: ChangeMyPasswordRequest,
-        authentication: Authentication // Spring Security inietta l'utente autenticato dal filtro
+        authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val email = authentication.name // L'email dell'admin loggato
+            val email = authentication.name
             amministratoreService.cambiaPasswordPersonale(email, request)
             ResponseEntity.ok("Password aggiornata con successo")
         } catch (e: Exception) {
@@ -49,10 +51,12 @@ class AmministratoreController(
         }
     }
 
-    // ... (createAgency, createAgent, getAgenciesOptions esistenti) ...
+    // --- GESTIONE AGENZIE E AGENTI ---
+
     @PostMapping("/create-agency")
     fun createAgency(@RequestBody request: CreateAgenziaRequest): ResponseEntity<*> {
         return try {
+            // Ora questo chiama correttamente il metodo implementato in AgenziaService
             val agenzia = agenziaService.creaAgenzia(request)
             ResponseEntity.ok(agenzia)
         } catch (e: Exception) { ResponseEntity.badRequest().body(e.message) }
@@ -60,6 +64,7 @@ class AmministratoreController(
 
     @GetMapping("/agencies-options")
     fun getAgenciesOptions(): ResponseEntity<List<AgenziaOptionDTO>> {
+        // Ora questo chiama correttamente il metodo implementato in AgenziaService
         return ResponseEntity.ok(agenziaService.getAgenzieOptionsForAdmin())
     }
 

@@ -15,6 +15,16 @@ class ImmobileEntity(
     @JoinColumn(name = "user_id", nullable = false)
     var proprietario: UtenteRegistratoEntity,
 
+    // L'Agenzia di competenza territoriale (Assegnata automaticamente via Geo al caricamento)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agenzia_id")
+    var agenzia: AgenziaEntity? = null,
+
+    // È nullable (?) perché all'inizio l'immobile è "in attesa" di accettazione
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agente_id")
+    var agente: AgenteEntity? = null,
+
     @Column(name = "tipo_vendita")
     var tipoVendita: Boolean = false,
 

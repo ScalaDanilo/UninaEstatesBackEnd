@@ -11,10 +11,12 @@ data class OffertaEntity(
     @GeneratedValue(strategy = GenerationType.UUID)
     val uuid: UUID? = null,
 
+    // Allineato con la foto: user_offerente_id
     @ManyToOne
     @JoinColumn(name = "user_offerente_id")
     val offerente: UtenteRegistratoEntity,
 
+    // Allineato con la foto: user_venditore_id
     @ManyToOne
     @JoinColumn(name = "user_venditore_id")
     val venditore: UtenteRegistratoEntity,
@@ -25,8 +27,9 @@ data class OffertaEntity(
 
     @Column(name = "prezzo_offerta")
     val prezzoOfferta: Int,
+
     val corpo: String? = null,
-    
+
     @Column(name = "data_offerta")
     val dataOfferta: LocalDateTime = LocalDateTime.now()
 )
