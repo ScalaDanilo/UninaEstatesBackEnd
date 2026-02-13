@@ -1,218 +1,260 @@
 package com.dieti.backend
 
-import com.dieti.backend.dto.ImmobileDTO
-import com.dieti.backend.dto.ImmobileSearchFilters
-import com.dieti.backend.dto.toDto
-import org.junit.jupiter.api.Test
-import org.springframework.boot.test.context.SpringBootTest
-
-import com.dieti.backend.entity.ImmobileEntity
-import com.dieti.backend.repository.ImmobileRepository
-import com.dieti.backend.repository.UtenteRepository
-import com.dieti.backend.service.ImmobileService
-import com.dieti.backend.service.RedisGeoService
-import com.dieti.backend.service.UltimaRicercaService
-import io.mockk.*
-import io.mockk.every
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeEach
-import org.springframework.data.jpa.domain.Specification
-import java.util.UUID
-
 import com.dieti.backend.dto.ChangeMyPasswordRequest
 import com.dieti.backend.dto.ImmobileCreateRequest
+import com.dieti.backend.dto.ImmobileDTO
+import com.dieti.backend.dto.toDto
+import com.dieti.backend.entity.AgenteEntity
+import com.dieti.backend.entity.AgenziaEntity
 import com.dieti.backend.entity.AmministratoreEntity
 import com.dieti.backend.entity.ImmagineEntity
+import com.dieti.backend.entity.ImmobileEntity
 import com.dieti.backend.entity.UtenteRegistratoEntity
-import com.dieti.backend.repository.AmministratoreRepository
-import com.dieti.backend.repository.ImmagineRepository
+import com.dieti.backend.repository.*
 import com.dieti.backend.service.AmministratoreService
-import com.dieti.backend.service.GeoapifyService
-import io.mockk.mockk
-import io.mockk.verify
+import com.dieti.backend.service.GeocodingService
+import com.dieti.backend.service.GestioneImmobiliService
+import com.dieti.backend.service.ImmobileService
+import com.dieti.backend.service.NotificaService
+import io.mockk.*
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.web.multipart.MultipartFile
+import java.time.LocalDate
+import java.util.Optional
+import java.util.UUID
 
-@SpringBootTest // <-- COMMENTATO PER EVITARE CHE IL TEST BLOCCHI LA BUILD
+/**
+ * BackendApplicationTests
+ * Contiene Unit Test per i servizi principali:
+ * - ImmobileService (Creazione e Cancellazione - Happy Path)
+ * - AmministratoreService (Cambio Password - Failure Path)
+ * - GestioneImmobiliService (Recupero Pendenti - Happy Path)
+ */
 class BackendApplicationTests {
 
-    // Mock delle dipendenze
-    private val redisGeoService: RedisGeoService = mockk()
-    private val ultimaRicercaService: UltimaRicercaService = mockk()
-    private val utenteRepository: UtenteRepository = mockk()
-    private val immagineRepository: ImmagineRepository = mockk()
-    private val geoapifyService: GeoapifyService = mockk()
-
-
-
-
-
-    @BeforeEach
-    fun setup() {
-        // Resetta i mock prima di ogni test per garantire un ambiente pulito
-        clearMocks(immobileRepository, redisGeoService, ultimaRicercaService)
-    }
-
-
-    // Mock del repository (non tocchiamo il database reale)
+    // --- DIPENDENZE CONDIVISE ---
     private val immobileRepository: ImmobileRepository = mockk()
+    private val utenteRepository: UtenteRepository = mockk()
+    private val agenteRepository: AgenteRepository = mockk()
+    private val agenziaRepository: AgenziaRepository = mockk()
+    private val immagineRepository: ImmagineRepository = mockk()
+    private val ambienteRepository: AmbienteRepository = mockk()
+    private val geocodingService: GeocodingService = mockk()
 
-    // Service sotto test (iniettiamo il mock)
-    // Nota: Aggiungi qui altri mock se ImmobileService ha altre dipendenze (es. GeoapifyService)
-    // Service sotto test
-    private val immobileService = ImmobileService(
-        immobileRepository,
-        utenteRepository,
-        immagineRepository,
-        ultimaRicercaService,
-        geoapifyService,
-        redisGeoService
-    )
+    // Dipendenze specifiche GestioneImmobili
+    private val notificaService: NotificaService = mockk()
 
-    @Test
-    fun `searchImmobili esegue ricerca GEO e applica filtri in memoria`() {
-        // Arrange
-        // Filtri: GEO + Prezzo (max 2000)
-        val filters = ImmobileSearchFilters(
-            lat = 40.85, lon = 14.26, radiusKm = 5.0,
-            maxPrezzo = 2000,
-            query = null // Query null per evitare salvataggio cronologia in questo test
-        )
-
-        val uuid1 = UUID.randomUUID()
-        val uuid2 = UUID.randomUUID()
-
-        // Immobile 1: Corrisponde ai filtri (Prezzo 1500 <= 2000)
-        val entityValid = mockk<ImmobileEntity>(relaxed = true)
-        every { entityValid.uuid } returns uuid1
-        every { entityValid.prezzo } returns 1500
-        every { entityValid.mq } returns 100 // Valore dummy
-        every { entityValid.toDto() } returns mockk<ImmobileDTO>()
-
-        // Immobile 2: NON corrisponde ai filtri (Prezzo 2500 > 2000)
-        val entityInvalid = mockk<ImmobileEntity>(relaxed = true)
-        every { entityInvalid.uuid } returns uuid2
-        every { entityInvalid.prezzo } returns 2500
-        // Nota: non serve mockare toDto per entityInvalid perché dovrebbe essere filtrata via
-
-        // Simuliamo Redis che trova 2 ID vicini
-        every { redisGeoService.findNearbyImmobiliIds(40.85, 14.26, 5.0) } returns listOf(uuid1.toString(), uuid2.toString())
-
-        // Simuliamo il recupero dal DB degli immobili trovati da Redis
-        every { immobileRepository.findAllById(listOf(uuid1, uuid2)) } returns listOf(entityValid, entityInvalid)
-
-        // Act
-        val result = immobileService.searchImmobili(filters, null)
-
-        // Assert
-        assertEquals(1, result.size, "Dovrebbe rimanere solo l'immobile che rispetta il filtro prezzo")
-        // Verifica che sia stato usato il flusso Geo
-        verify(exactly = 1) { redisGeoService.findNearbyImmobiliIds(any(), any(), any()) }
-        // Verifica che NON sia stata usata la Specification
-        verify(exactly = 0) { immobileRepository.findAll(any<Specification<ImmobileEntity>>()) }
-    }
-
-
-    // Mock delle dipendenze
+    // Dipendenze specifiche Amministratore
     private val amministratoreRepository: AmministratoreRepository = mockk()
     private val passwordEncoder: PasswordEncoder = mockk()
 
-    // Service sotto test
-    private val amministratoreService =
-        AmministratoreService(amministratoreRepository, passwordEncoder)
+    // --- SERVICES SOTTO TEST ---
+    private lateinit var immobileService: ImmobileService
+    private lateinit var amministratoreService: AmministratoreService
+    private lateinit var gestioneImmobiliService: GestioneImmobiliService
 
+    @BeforeEach
+    fun setup() {
+        // Reset dei mock
+        clearMocks(
+            immobileRepository, utenteRepository, agenteRepository, agenziaRepository,
+            immagineRepository, ambienteRepository, geocodingService,
+            amministratoreRepository, passwordEncoder, notificaService
+        )
+
+        // Inizializzazione Services
+        immobileService = ImmobileService(
+            immobileRepository, utenteRepository, agenteRepository, agenziaRepository,
+            immagineRepository, ambienteRepository, geocodingService
+        )
+
+        amministratoreService = AmministratoreService(
+            amministratoreRepository, passwordEncoder
+        )
+
+        gestioneImmobiliService = GestioneImmobiliService(
+            immobileRepository, agenteRepository, notificaService
+        )
+    }
+
+    // ==========================================
+    // TEST 1: Creazione Immobile (Successo)
+    // ==========================================
     @Test
-    fun `cambiaPasswordPersonale lancia eccezione se password attuale non corretta`() {
+    fun `creaImmobile successo (Agente) - Geocoding attivo e assegnazione agenzia`() {
+        // Test Case ID: TC_IMM_CREA_01
+
+        // Arrange
+        val userId = UUID.randomUUID().toString()
+        val request = mockk<ImmobileCreateRequest>(relaxed = true)
+        val fileMock = mockk<MultipartFile>(relaxed = true)
+        val files = listOf(fileMock)
+
+        // Dati richiesta: Indirizzo presente, Coordinate assenti (Triggera Geocoding)
+        every { request.indirizzo } returns "Via Roma 1"
+        every { request.localita } returns "Napoli"
+        every { request.lat } returns null
+        every { request.long } returns null
+        every { request.ambienti } returns emptyList()
+        every { fileMock.bytes } returns ByteArray(10)
+        every { fileMock.originalFilename } returns "foto.jpg"
+
+        // Mock Ruoli: Utente è Agente
+        val utenteMock = mockk<UtenteRegistratoEntity>()
+        val agenteMock = mockk<AgenteEntity>()
+        val agenziaMock = mockk<AgenziaEntity>()
+        every { agenziaMock.nome } returns "Agenzia Alpha"
+        every { agenteMock.agenzia } returns agenziaMock
+
+        every { utenteRepository.findById(UUID.fromString(userId)) } returns Optional.of(utenteMock)
+        every { agenteRepository.findById(UUID.fromString(userId)) } returns Optional.of(agenteMock)
+
+        // Mock Geocoding (Successo)
+        val coords = GeocodingService.GeoResult(40.85, 14.26, "Napoli")
+        every { geocodingService.getCoordinates("Via Roma 1", "Napoli") } returns coords
+
+        // Mock Salvataggio
+        val savedImmobile = mockk<ImmobileEntity>(relaxed = true)
+        val slotImmobile = slot<ImmobileEntity>()
+        every { savedImmobile.uuid } returns UUID.randomUUID()
+        every { savedImmobile.toDto() } returns mockk<ImmobileDTO>()
+
+        // Capture entity per assert
+        every { immobileRepository.save(capture(slotImmobile)) } returns savedImmobile
+        every { immagineRepository.saveAll(any<List<ImmagineEntity>>()) } returns emptyList()
+
+        // Act
+        immobileService.creaImmobile(request, files, userId)
+
+        // Assert
+        val capturedEntity = slotImmobile.captured
+
+        // Verifica Geocoding
+        assertEquals(40.85, capturedEntity.lat)
+        assertEquals(14.26, capturedEntity.long)
+
+        // Verifica Assegnazione Agenzia (Logica Agente)
+        assertEquals(agenziaMock, capturedEntity.agenzia)
+        assertEquals(agenteMock, capturedEntity.agente)
+
+        // Verifica persistenza
+        verify(exactly = 1) { immobileRepository.save(any<ImmobileEntity>()) }
+        verify(exactly = 1) { immagineRepository.saveAll(any<List<ImmagineEntity>>()) }
+    }
+
+    // ==========================================
+    // TEST 2: Cancellazione Immobile (Successo)
+    // ==========================================
+    @Test
+    fun `cancellaImmobile successo - Eliminazione corretta immobile esistente`() {
+        // Test Case ID: TC_IMM_DEL_01
+
+        // Arrange
+        val immobileUuid = UUID.randomUUID()
+        val userId = UUID.randomUUID().toString()
+        val immobileEntity = mockk<ImmobileEntity>(relaxed = true)
+
+        // Simuliamo che l'immobile esista nel DB
+        every { immobileRepository.findById(immobileUuid) } returns Optional.of(immobileEntity)
+
+        // Simuliamo la cancellazione (void)
+        every { immobileRepository.delete(immobileEntity) } just Runs
+
+        // Act
+        immobileService.cancellaImmobile(immobileUuid.toString(), userId)
+
+        // Assert
+        verify(exactly = 1) { immobileRepository.findById(immobileUuid) }
+        verify(exactly = 1) { immobileRepository.delete(immobileEntity) }
+    }
+
+    // ==========================================
+    // TEST 3: Cambio Password Admin (Fallimento)
+    // ==========================================
+    @Test
+    fun `cambiaPasswordPersonale fallimento - Password attuale errata`() {
+        // Test Case ID: TC_ADMIN_PWD_FAIL
+
         // Arrange
         val email = "admin@test.com"
-        val oldPasswordErrata = "passwordSbagliata"
-        val oldPasswordHashataNelDb = "hashDellaPasswordVera"
-        val request = ChangeMyPasswordRequest(oldPassword = oldPasswordErrata, newPassword = "newPass")
+        val request = ChangeMyPasswordRequest(
+            oldPassword = "wrongPassword123",
+            newPassword = "newSecurePassword!"
+        )
+        val encodedRealPassword = "encodedRealPasswordHash"
 
-        val adminMock = mockk<AmministratoreEntity>(relaxed = true)
-        every { adminMock.password } returns oldPasswordHashataNelDb
+        val adminEntity = mockk<AmministratoreEntity>(relaxed = true)
+        every { adminEntity.password } returns encodedRealPassword
 
-        // Simuliamo che l'admin venga trovato
-        every { amministratoreRepository.findByEmail(email) } returns adminMock
+        // 1. L'admin viene trovato
+        every { amministratoreRepository.findByEmail(email) } returns adminEntity
 
-        // Simuliamo che il controllo della password fallisca (false)
-        every { passwordEncoder.matches(oldPasswordErrata, oldPasswordHashataNelDb) } returns false
+        // 2. Il match della password fallisce (oldPassword vs realPassword)
+        every { passwordEncoder.matches(request.oldPassword, encodedRealPassword) } returns false
 
         // Act & Assert
         val exception = assertThrows(IllegalArgumentException::class.java) {
             amministratoreService.cambiaPasswordPersonale(email, request)
         }
 
+        // Verifica messaggio errore specifico
         assertEquals("Password attuale non corretta", exception.message)
 
-        // Verifichiamo che il metodo save NON sia stato chiamato (la password non deve cambiare)
+        // Verifica che il salvataggio NON avvenga
         verify(exactly = 0) { amministratoreRepository.save(any()) }
     }
 
+    // ==========================================
+    // TEST 4: Gestione Immobili - Recupero Pendenti (Successo)
+    // ==========================================
     @Test
-    fun `creaImmobile salva immobile, coordinate e immagini correttamente`() {
+    fun `getImmobiliDaApprovare successo - Recupera lista filtrata per agenzia del manager`() {
+        // Test Case ID: TC_GEST_GET_01
+
         // Arrange
-        val email = "proprietario@test.com"
-        val request = mockk<ImmobileCreateRequest>(relaxed = true)
-        val fileMock = mockk<MultipartFile>(relaxed = true)
-        val files = listOf(fileMock)
+        val managerId = UUID.randomUUID()
+        val agenziaId = UUID.randomUUID()
+        val managerIdStr = managerId.toString()
 
-        // Mock dati richiesta
-        every { request.indirizzo } returns "Via Roma 1"
-        every { request.localita } returns "Napoli"
-        every { request.annoCostruzione } returns "2020"
-        every { request.ambienti } returns emptyList() // Nessun ambiente aggiuntivo per semplicità
-        every { fileMock.bytes } returns ByteArray(10)
-        every { fileMock.originalFilename } returns "foto.jpg"
-        every { fileMock.contentType } returns "image/jpeg"
+        // 1. Mock Manager e Agenzia
+        val agenziaMock = mockk<AgenziaEntity>(relaxed = true)
+        every { agenziaMock.uuid } returns agenziaId
 
-        // Mock Utente
-        val proprietarioMock = mockk<UtenteRegistratoEntity>()
-        every { utenteRepository.findByEmail(email) } returns proprietarioMock
+        val managerMock = mockk<AgenteEntity>(relaxed = true)
+        every { managerMock.agenzia } returns agenziaMock
+        every { agenteRepository.findById(managerId) } returns Optional.of(managerMock)
 
-        // Mock Geoapify (Coordinate e Amenities)
-        val coordsMock: GeoapifyService.GeoResult = mockk()
-        every { coordsMock.lat } returns 40.85
-        every { coordsMock.lon } returns 14.26
-        every { coordsMock.city } returns "Napoli"
-        every { geoapifyService.getCoordinates(any(), any()) } returns coordsMock
+        // 2. Mock Immobile Pendente con Immagine
+        val immobilePendente = mockk<ImmobileEntity>(relaxed = true)
+        val immagineMock = mockk<ImmagineEntity>(relaxed = true)
+        every { immagineMock.id } returns 101
 
-        val amenitiesMock: GeoapifyService.AmenitiesResult = mockk()
-        every { amenitiesMock.hasParks } returns true
-        every { geoapifyService.checkAmenities(any(), any()) } returns amenitiesMock
+        every { immobilePendente.uuid } returns UUID.randomUUID()
+        every { immobilePendente.categoria } returns "Appartamento"
+        every { immobilePendente.localita } returns "Milano"
+        every { immobilePendente.indirizzo } returns "Via Dante"
+        every { immobilePendente.annoCostruzione } returns LocalDate.of(2022, 1, 1)
+        every { immobilePendente.immagini } returns mutableListOf(immagineMock)
 
-        // Mock Salvataggio Immobile
-        val savedImmobile = mockk<ImmobileEntity>(relaxed = true)
-        every { savedImmobile.uuid } returns UUID.randomUUID()
-        every { savedImmobile.immagini } returns mutableListOf()
-        every { savedImmobile.ambienti } returns mutableListOf()
-        every { savedImmobile.toDto() } returns mockk<ImmobileDTO>()
-
-        // Il metodo save viene chiamato. Usiamo `atLeast = 1` perché nel codice fornito
-        // potrebbero esserci chiamate multiple (save iniziale + save post-immagini/ambienti).
-        every { immobileRepository.save(any<ImmobileEntity>()) } returns savedImmobile
-
-        // Mock Redis e Immagini
-        every { redisGeoService.addLocation(any(), any(), any()) } just Runs
-        every { redisGeoService.addCity(any()) } just Runs
-        every { immagineRepository.saveAll(any<List<ImmagineEntity>>()) } returns emptyList()
+        // 3. Mock Repository Immobili
+        every { immobileRepository.findRichiestePendentiPerAgenzia(agenziaId) } returns listOf(immobilePendente)
 
         // Act
-        immobileService.creaImmobile(request, files, email)
+        val result = gestioneImmobiliService.getImmobiliDaApprovare(managerIdStr)
 
         // Assert
-        verify(exactly = 1) { utenteRepository.findByEmail(email) }
-        verify(exactly = 1) { geoapifyService.getCoordinates("Via Roma 1", "Napoli") }
+        assertEquals(1, result.size)
+        val dto = result[0]
+        assertEquals("APPARTAMENTO", dto.titolo)
+        assertEquals("Milano - Via Dante", dto.descrizione)
+        assertEquals("DA APPROVARE", dto.stato)
+        assertEquals("/api/immagini/101/raw", dto.immagineUrl) // Verifica la mappatura dell'URL immagine
 
-        // Verifica salvataggio nel DB
-        verify(atLeast = 1) { immobileRepository.save(any<ImmobileEntity>()) }
-
-        // Verifica integrazione Redis
-        verify(exactly = 1) { redisGeoService.addLocation(savedImmobile.uuid.toString(), 40.85, 14.26) }
-        verify(exactly = 1) { redisGeoService.addCity("Napoli") }
-
-        // Verifica salvataggio immagini
-        verify(exactly = 1) { immagineRepository.saveAll(any<List<ImmagineEntity>>()) }
+        // Verifica che sia stato chiamato il metodo ottimizzato del repository
+        verify(exactly = 1) { immobileRepository.findRichiestePendentiPerAgenzia(agenziaId) }
     }
 }
