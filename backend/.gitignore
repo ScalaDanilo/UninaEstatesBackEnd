@@ -4,6 +4,7 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
+firebase-service-account.json
 
 ### STS ###
 .apt_generated
@@ -38,3 +39,5 @@ out/
 
 ### Kotlin ###
 .kotlin
+src/main/resources/firebase-service-account.json
+src/main/resources/firebase-service-account.json

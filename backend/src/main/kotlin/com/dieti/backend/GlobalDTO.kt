@@ -189,10 +189,12 @@ data class UtenteResponseDTO(
     val telefono: String?,
     val ruolo: String, // "UTENTE" o "MANAGER"
 
-    // Lista preferiti (popolata solo se UTENTE)
-    val preferiti: List<ImmobileSummaryDTO> = emptyList(),
+    // Nuovi campi preferenze
+    val notifTrattative: Boolean = true,
+    val notifPubblicazione: Boolean = true,
+    val notifNuoviImmobili: Boolean = true,
 
-    // Campo specifico per MANAGER (nullo se UTENTE)
+    val preferiti: List<ImmobileSummaryDTO> = emptyList(),
     val agenziaNome: String? = null
 )
 
@@ -234,7 +236,12 @@ fun UtenteRegistratoEntity.toDto(): UtenteResponseDTO {
         email = this.email,
         telefono = this.telefono,
         ruolo = "UTENTE",
-        // Mappiamo i preferiti usando la funzione toSummaryDto
+
+        // Mappiamo le preferenze dal DB
+        notifTrattative = this.notifTrattative,
+        notifPubblicazione = this.notifPubblicazione,
+        notifNuoviImmobili = this.notifNuoviImmobili,
+
         preferiti = this.preferiti.map { it.toSummaryDto() }
     )
 }
@@ -368,6 +375,8 @@ data class AdminLoginResponse(
     val role: String
 )
 
+
+
 // --- MAPPER AGENTE (Ruolo = MANAGER) ---
 // Usiamo questo per il Login, così il Frontend riceve lo stesso tipo di oggetto
 fun AgenteEntity.toDto(): UtenteResponseDTO {
@@ -378,8 +387,12 @@ fun AgenteEntity.toDto(): UtenteResponseDTO {
         email = this.email,
         telefono = null,
         ruolo = "MANAGER",
+        // I manager per ora non hanno queste impostazioni nel DB, defaultiamo a true
+        notifTrattative = true,
+        notifPubblicazione = true,
+        notifNuoviImmobili = true,
+
         preferiti = emptyList(),
-        // Qui mappiamo il nome dell'agenzia
         agenziaNome = this.agenzia.nome
     )
 }

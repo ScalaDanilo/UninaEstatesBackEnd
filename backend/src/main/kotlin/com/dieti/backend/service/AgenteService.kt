@@ -20,12 +20,12 @@ class AgenteService(
     private val agenteRepository: AgenteRepository,
     private val agenziaRepository: AgenziaRepository,
     private val immobileRepository: ImmobileRepository,
-    private val notificaService: NotificaService,
+    private val notificaService: NotificaService, // Service DB interno
+    private val firebaseService: FirebaseNotificationService, // NUOVO: Service Push
     private val passwordEncoder: PasswordEncoder
 ) {
 
-    // ... (creaAgente, getAgenteById, getAllAgenti, getRichiestePendenti rimangono uguali, li ometto per brevità ma devono esserci) ...
-    // Riporto i metodi modificati per il debug:
+    // ... (metodi creaAgente, getAgenteById, getAllAgenti, getRichiestePendenti rimangono invariati)
 
     @Transactional
     fun creaAgente(request: CreateAgenteRequest): AgenteDTO {
@@ -63,62 +63,52 @@ class AgenteService(
 
     @Transactional(readOnly = true)
     fun getRichiestePendenti(agenteId: String): List<ImmobileDTO> {
-        println("\n>>> SERVICE ENTRY: getRichiestePendenti chiamato con ID: '$agenteId' <<<")
         val uuid = try { UUID.fromString(agenteId) } catch (e: Exception) { throw EntityNotFoundException("ID Agente non valido") }
         val agente = agenteRepository.findById(uuid).orElseThrow { EntityNotFoundException("Agente non trovato nel DB") }
         val agenziaId = agente.agenzia?.uuid ?: throw EntityNotFoundException("ID Agenzia è NULL")
-        println("   > Agenzia Target: ${agente.agenzia?.nome} (ID: $agenziaId)")
         val immobili = immobileRepository.findRichiestePendentiPerAgenzia(agenziaId)
-        println("   > Query Result: ${immobili.size} immobili trovati.")
-        println(">>> SERVICE EXIT <<<\n")
         return immobili.map { it.toDto() }
     }
 
-    // --- ACCETTA INCARICO (DEBUGGATO) ---
+
+    // --- ACCETTA INCARICO + NOTIFICHE ---
     @Transactional
     fun accettaIncarico(agenteId: String, immobileId: String) {
-        println("\n--- DEBUG ACCETTA INCARICO ---")
-        println("1. Richiesta da AgenteID: $agenteId per ImmobileID: $immobileId")
-
-        val uuidAgente = try { UUID.fromString(agenteId) } catch (e: Exception) {
-            println("!!! ERRORE: ID Agente non è un UUID valido")
-            throw e
-        }
-        val uuidImmobile = try { UUID.fromString(immobileId) } catch (e: Exception) {
-            println("!!! ERRORE: ID Immobile non è un UUID valido")
-            throw e
-        }
+        val uuidAgente = UUID.fromString(agenteId)
+        val uuidImmobile = UUID.fromString(immobileId)
 
         val agente = agenteRepository.findById(uuidAgente)
-            .orElseThrow {
-                println("!!! ERRORE: Agente non trovato nel DB")
-                EntityNotFoundException("Agente non trovato")
-            }
-        println("2. Agente trovato: ${agente.email}")
+            .orElseThrow { EntityNotFoundException("Agente non trovato") }
 
         val immobile = immobileRepository.findById(uuidImmobile)
-            .orElseThrow {
-                println("!!! ERRORE: Immobile non trovato nel DB")
-                EntityNotFoundException("Immobile non trovato")
-            }
-        println("3. Immobile trovato: ${immobile.indirizzo}")
+            .orElseThrow { EntityNotFoundException("Immobile non trovato") }
 
-        // Check Agenzia
         if (immobile.agenzia?.uuid != agente.agenzia?.uuid) {
-            println("!!! ERRORE: Mismatch Agenzia. Immobile: ${immobile.agenzia?.uuid}, Agente: ${agente.agenzia?.uuid}")
             throw RuntimeException("Questo immobile non appartiene alla tua agenzia")
         }
 
         immobile.agente = agente
         val saved = immobileRepository.save(immobile)
-        println("4. SUCCESSO: Immobile aggiornato. Agente assegnato: ${saved.agente?.email}")
-        println("--- DEBUG END ---\n")
+
+        // 1. NOTIFICA AL PROPRIETARIO (Richiesta Accettata)
+        val titoloOwner = "Immobile Pubblicato!"
+        val corpoOwner = "Il tuo immobile in ${saved.localita} è stato accettato dall'agente ${agente.nome}."
+
+        // Notifica Interna (DB)
+        notificaService.inviaNotifica(saved.proprietario, titoloOwner, corpoOwner, "SISTEMA")
+        // Notifica Push (Firebase)
+        firebaseService.sendNotificationToUser(saved.proprietario, titoloOwner, corpoOwner) { it.notifPubblicazione }
+
+        // 2. NOTIFICA AGLI UTENTI INTERESSATI (Nuovo Immobile in zona)
+        // Usiamo la località dell'immobile per trovare chi l'ha cercata
+        if (!saved.localita.isNullOrBlank()) {
+            firebaseService.notifyUsersForNewProperty(saved.localita!!, saved.indirizzo ?: saved.localita!!)
+        }
     }
 
-    // --- RIFIUTA INCARICO (DEBUGGATO) ---
+    // --- RIFIUTA INCARICO + NOTIFICHE ---
     @Transactional
     fun rifiutaIncarico(agenteId: String, immobileId: String) {
-        println("\n--- DEBUG RIFIUTA INCARICO ---")
         val uuidAgente = UUID.fromString(agenteId)
         val agente = agenteRepository.findById(uuidAgente).orElseThrow { EntityNotFoundException("Agente non trovato") }
         val immobile = immobileRepository.findById(UUID.fromString(immobileId)).orElseThrow { EntityNotFoundException("Immobile non trovato") }
@@ -127,16 +117,13 @@ class AgenteService(
             throw RuntimeException("Questo immobile non appartiene alla tua agenzia")
         }
 
-        println("1. Invia notifica rifiuto a ${immobile.proprietario.email}")
-        notificaService.inviaNotifica(
-            destinatario = immobile.proprietario,
-            titolo = "Richiesta Inserimento Rifiutata",
-            corpo = "Ci dispiace, ma la tua richiesta per l'immobile in ${immobile.indirizzo} non può essere gestita dalla nostra agenzia."
-        )
+        // 1. NOTIFICA AL PROPRIETARIO (Richiesta Rifiutata)
+        val titolo = "Richiesta Rifiutata"
+        val corpo = "Ci dispiace, la richiesta per ${immobile.indirizzo} non è stata accettata dall'agenzia."
 
-        println("2. Eliminazione immobile...")
+        notificaService.inviaNotifica(immobile.proprietario, titolo, corpo)
+        firebaseService.sendNotificationToUser(immobile.proprietario, titolo, corpo) { it.notifPubblicazione }
+
         immobileRepository.delete(immobile)
-        println("3. SUCCESSO: Immobile eliminato")
-        println("--- DEBUG END ---\n")
     }
 }
