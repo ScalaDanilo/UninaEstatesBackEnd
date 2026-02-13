@@ -17,7 +17,24 @@ class UtenteRegistratoEntity(
     var email: String,
 
     var password: String? = null,
-    var telefono: String? = null
+    var telefono: String? = null,
+
+    // --- NUOVI CAMPI NOTIFICHE ---
+
+    // Il token univoco del dispositivo per inviare le push
+    @Column(name = "fcm_token")
+    var fcmToken: String? = null,
+
+    // Preferenze utente (Default true)
+    @Column(name = "notif_trattative")
+    var notifTrattative: Boolean = true,
+
+    @Column(name = "notif_pubblicazione")
+    var notifPubblicazione: Boolean = true,
+
+    @Column(name = "notif_nuovi_immobili")
+    var notifNuoviImmobili: Boolean = true
+
 ) {
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
