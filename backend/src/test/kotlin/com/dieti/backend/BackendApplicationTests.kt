@@ -44,6 +44,8 @@ class BackendApplicationTests {
     private val immagineRepository: ImmagineRepository = mockk()
     private val ambienteRepository: AmbienteRepository = mockk()
     private val geocodingService: GeocodingService = mockk()
+    private val firebaseService: FirebaseService = mockk()
+
 
     // Dipendenze specifiche GestioneImmobili
     private val notificaService: NotificaService = mockk()
@@ -77,7 +79,7 @@ class BackendApplicationTests {
         )
 
         gestioneImmobiliService = GestioneImmobiliService(
-            immobileRepository, agenteRepository, notificaService
+            immobileRepository, agenteRepository, notificaService, firebaseService
         )
     }
 

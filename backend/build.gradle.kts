@@ -48,6 +48,7 @@ dependencies {
 
     // notifiche
     implementation("com.google.firebase:firebase-admin:9.4.3")
+    implementation("com.google.firebase:firebase-common-ktx:22.0.1")
 
     // Test (Disabilitati per ora)
     testImplementation("org.springframework.boot:spring-boot-starter-test")
