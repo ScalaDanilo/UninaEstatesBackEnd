@@ -5,6 +5,7 @@ import com.dieti.backend.dto.RichiestaDTO
 import com.dieti.backend.service.GestioneImmobiliService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.util.Collections
 
 @RestController
 @RequestMapping("/api/manager/richieste")
@@ -29,34 +30,41 @@ class GestioneImmobiliController(
 
     /**
      * ENDPOINT: Il manager accetta l'immobile.
-     * Azione DB: UPDATE immobile SET agente_id = [manager_id] WHERE id = [immobile_id]
+     * FIX: Restituisce un JSON { "message": "..." } invece di una stringa raw per evitare errori Retrofit.
      */
     @PostMapping("/accetta")
     fun accettaRichiesta(
         @RequestBody request: EsitoRichiestaRequest,
         @RequestHeader("X-Manager-Id") managerId: String // Usiamo l'header per sapere chi sta accettando
-    ): ResponseEntity<String> {
+    ): ResponseEntity<Map<String, String>> {
         return try {
             gestioneImmobiliService.accettaImmobile(request.id, managerId)
-            ResponseEntity.ok("Immobile preso in carico con successo")
+
+            // Restituiamo una Mappa che verrà serializzata in JSON corretto
+            val response = Collections.singletonMap("message", "Immobile preso in carico con successo")
+            ResponseEntity.ok(response)
         } catch (e: Exception) {
             e.printStackTrace()
-            ResponseEntity.badRequest().body("Errore: ${e.message}")
+            val errorResponse = Collections.singletonMap("error", e.message ?: "Errore generico")
+            ResponseEntity.badRequest().body(errorResponse)
         }
     }
 
     /**
      * ENDPOINT: Il manager rifiuta l'immobile.
-     * Azione DB: DELETE FROM immobile WHERE id = [immobile_id]
+     * FIX: Uniformato per restituire JSON { "message": "..." } come per l'accettazione.
      */
     @PostMapping("/rifiuta")
-    fun rifiutaRichiesta(@RequestBody request: EsitoRichiestaRequest): ResponseEntity<String> {
+    fun rifiutaRichiesta(@RequestBody request: EsitoRichiestaRequest): ResponseEntity<Map<String, String>> {
         return try {
             gestioneImmobiliService.rifiutaImmobile(request.id)
-            ResponseEntity.ok("Immobile rifiutato e rimosso")
+
+            val response = Collections.singletonMap("message", "Immobile rifiutato e rimosso")
+            ResponseEntity.ok(response)
         } catch (e: Exception) {
             e.printStackTrace()
-            ResponseEntity.badRequest().body("Errore: ${e.message}")
+            val errorResponse = Collections.singletonMap("error", e.message ?: "Errore generico")
+            ResponseEntity.badRequest().body(errorResponse)
         }
     }
 }

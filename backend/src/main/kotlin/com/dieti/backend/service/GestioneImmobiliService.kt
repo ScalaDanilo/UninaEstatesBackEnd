@@ -12,27 +12,25 @@ import java.util.UUID
 @Service
 class GestioneImmobiliService(
     private val immobileRepository: ImmobileRepository,
-    private val agenteRepository: AgenteRepository, // AGGIUNTO per recuperare l'agenzia del manager
-    private val notificaService: NotificaService // Opzionale: per notificare l'utente (se lo usi)
+    private val agenteRepository: AgenteRepository,
+    private val notificaService: NotificaService, // Service DB
+    private val firebaseService: FirebaseNotificationService // Service Push
 ) {
 
     @Transactional(readOnly = true)
     fun getImmobiliDaApprovare(managerIdStr: String): List<RichiestaDTO> {
         val managerId = UUID.fromString(managerIdStr)
 
-        // 1. Recupero il manager (agente) per capire a quale agenzia appartiene
         val manager = agenteRepository.findById(managerId)
             .orElseThrow { EntityNotFoundException("Manager non trovato") }
 
         val agenziaId = manager.agenzia?.uuid
             ?: throw IllegalStateException("Il manager non appartiene a nessuna agenzia")
 
-        // 2. Uso la query SQL ottimizzata nel repository invece di scaricare tutto il DB
         val immobiliDaApprovare = immobileRepository.findRichiestePendentiPerAgenzia(agenziaId)
 
         return immobiliDaApprovare.map { immobile ->
-            // Recupero il path della prima immagine, se presente
-            val firstImage = immobile.immagini.firstOrNull()?.id?.let { "/api/immagini/$it/raw" }
+            val firstImage = immobile.immagini.firstOrNull()?.id?.let { "/api/immobili/immagini/$it/raw" }
 
             RichiestaDTO(
                 id = immobile.uuid.toString(),
@@ -40,7 +38,7 @@ class GestioneImmobiliService(
                 descrizione = "${immobile.localita ?: "N/D"} - ${immobile.indirizzo ?: "N/D"}",
                 data = immobile.annoCostruzione?.format(DateTimeFormatter.ISO_DATE) ?: "Recente",
                 stato = "DA APPROVARE",
-                immagineUrl = firstImage // Passo l'immagine alla UI
+                immagineUrl = firstImage
             )
         }
     }
@@ -56,11 +54,27 @@ class GestioneImmobiliService(
         val manager = agenteRepository.findById(managerId)
             .orElseThrow { EntityNotFoundException("Manager non trovato") }
 
-        // FIX CRITICO: Assegniamo l'agente all'immobile.
-        // NON sovrascriviamo il proprietario!
+        // Assegna agente
         immobile.agente = manager
-
         immobileRepository.save(immobile)
+
+        // --- INVIO NOTIFICHE ---
+
+        // 1. Al Proprietario (Push + DB)
+        val titoloOwner = "Immobile Pubblicato! 🏠"
+        val corpoOwner = "Il tuo immobile in ${immobile.localita} è stato accettato dall'agente ${manager.nome}."
+
+        notificaService.inviaNotifica(immobile.proprietario, titoloOwner, corpoOwner, "SISTEMA")
+        firebaseService.sendNotificationToUser(immobile.proprietario, titoloOwner, corpoOwner) { it.notifPubblicazione }
+
+        // 2. Broadcast (Nuovi Immobili in zona)
+        if (!immobile.localita.isNullOrBlank()) {
+            val indirizzoCompleto = if(!immobile.indirizzo.isNullOrBlank())
+                "${immobile.localita}, ${immobile.indirizzo}"
+            else immobile.localita!!
+
+            firebaseService.notifyUsersForNewProperty(immobile.localita!!, indirizzoCompleto)
+        }
     }
 
     @Transactional
@@ -69,10 +83,16 @@ class GestioneImmobiliService(
         val immobile = immobileRepository.findById(immobileId)
             .orElseThrow { EntityNotFoundException("Immobile non trovato") }
 
-        // Opzionale ma consigliato: avvisare l'utente prima di eliminare
-        // notificaService.inviaNotifica(immobile.proprietario, "Richiesta Rifiutata", "Il tuo immobile in ${immobile.indirizzo} non è stato preso in carico.")
+        // --- INVIO NOTIFICHE ---
 
-        // Il manager rifiuta la notifica: elimina definitivamente l'immobile dal DB
+        // 1. Al Proprietario (Push + DB)
+        val titolo = "Richiesta Rifiutata ❌"
+        val corpo = "Ci dispiace, la richiesta per ${immobile.localita} non è stata accettata dall'agenzia."
+
+        notificaService.inviaNotifica(immobile.proprietario, titolo, corpo)
+        firebaseService.sendNotificationToUser(immobile.proprietario, titolo, corpo) { it.notifPubblicazione }
+
+        // Elimina
         immobileRepository.delete(immobile)
     }
 }
