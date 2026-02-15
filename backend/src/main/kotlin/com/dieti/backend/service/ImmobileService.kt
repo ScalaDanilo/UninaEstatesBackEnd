@@ -19,7 +19,7 @@ class ImmobileService(
     private val agenziaRepository: AgenziaRepository,
     private val immagineRepository: ImmagineRepository,
     private val ambienteRepository: AmbienteRepository,
-    private val geocodingService: GeocodingService
+    private val geocodingService: GeoapifyService
 ) {
 
     @Transactional

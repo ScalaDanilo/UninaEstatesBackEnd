@@ -10,10 +10,12 @@ import com.dieti.backend.repository.AgenteRepository
 import com.dieti.backend.repository.AgenziaRepository
 import com.dieti.backend.repository.ImmobileRepository
 import jakarta.persistence.EntityNotFoundException
+import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
 
 @Service
 class AgenteService(
@@ -24,7 +26,9 @@ class AgenteService(
     private val firebaseService: FirebaseNotificationService,
     private val passwordEncoder: PasswordEncoder
 ) {
+    private val logger = LoggerFactory.getLogger(AgenteService::class.java)
 
+    // ... (metodi creaAgente, getAgenteById, getAllAgenti, getRichiestePendenti rimangono uguali) ...
     @Transactional
     fun creaAgente(request: CreateAgenteRequest): AgenteDTO {
         val agenziaUUID = UUID.fromString(request.agenziaId)
@@ -67,8 +71,7 @@ class AgenteService(
         return immobili.map { it.toDto() }
     }
 
-
-    // --- ACCETTA INCARICO + NOTIFICHE ---
+    // --- ACCETTA INCARICO + NOTIFICHE ASINCRONE ---
     @Transactional
     fun accettaIncarico(agenteEmail: String, immobileId: String) {
         val agente = agenteRepository.findByEmail(agenteEmail)
@@ -86,26 +89,34 @@ class AgenteService(
         immobile.agente = agente
         val saved = immobileRepository.save(immobile)
 
-        // 1. NOTIFICA AL PROPRIETARIO (Richiesta Accettata)
-        // Viene inviata SOLO se notifPubblicazione è TRUE nel DB
-        val titoloOwner = "Immobile Pubblicato! 🏠"
-        val corpoOwner = "Il tuo immobile in ${saved.localita} è stato accettato e pubblicato dall'agente ${agente.nome}."
+        // FIX CRITICO: Eseguiamo le chiamate esterne (Firebase) in un thread separato
+        // per evitare che il client Android vada in timeout aspettando la risposta HTTP.
+        CompletableFuture.runAsync {
+            try {
+                // 1. NOTIFICA AL PROPRIETARIO (Richiesta Accettata)
+                val titoloOwner = "Immobile Pubblicato! 🏠"
+                val corpoOwner = "Il tuo immobile in ${saved.localita} è stato accettato e pubblicato dall'agente ${agente.nome}."
 
-        notificaService.inviaNotifica(saved.proprietario, titoloOwner, corpoOwner, "SISTEMA")
-        firebaseService.sendNotificationToUser(saved.proprietario, titoloOwner, corpoOwner) {
-            it.notifPubblicazione // Check Preferenza
-        }
+                // Salvataggio su DB (meglio farlo qui o tenerlo sincrono se veloce, ma qui va bene)
+                notificaService.inviaNotifica(saved.proprietario, titoloOwner, corpoOwner, "SISTEMA")
 
-        // 2. NOTIFICA AGLI UTENTI INTERESSATI (Nuovo Immobile in zona)
-        // Cerca utenti con ricerche salvate in questa zona e invia notifica
-        // Controlla automaticamente notifNuoviImmobili
-        if (!saved.localita.isNullOrBlank()) {
-            val indirizzoCompleto = if(saved.indirizzo.isNullOrBlank()) saved.localita!! else "${saved.localita}, ${saved.indirizzo}"
-            firebaseService.notifyUsersForNewProperty(saved.localita!!, indirizzoCompleto)
+                // Push Notification (Lenta)
+                firebaseService.sendNotificationToUser(saved.proprietario, titoloOwner, corpoOwner) {
+                    it.notifPubblicazione
+                }
+
+                // 2. NOTIFICA AGLI UTENTI INTERESSATI
+                if (!saved.localita.isNullOrBlank()) {
+                    val indirizzoCompleto = if(saved.indirizzo.isNullOrBlank()) saved.localita!! else "${saved.localita}, ${saved.indirizzo}"
+                    firebaseService.notifyUsersForNewProperty(saved.localita!!, indirizzoCompleto)
+                }
+            } catch (e: Exception) {
+                logger.error("Errore invio notifiche asincrone: ${e.message}")
+            }
         }
     }
 
-    // --- RIFIUTA INCARICO + NOTIFICHE ---
+    // --- RIFIUTA INCARICO + NOTIFICHE ASINCRONE ---
     @Transactional
     fun rifiutaIncarico(agenteEmail: String, immobileId: String) {
         val agente = agenteRepository.findByEmail(agenteEmail)
@@ -118,15 +129,26 @@ class AgenteService(
             throw RuntimeException("Questo immobile non appartiene alla tua agenzia")
         }
 
-        // 1. NOTIFICA AL PROPRIETARIO (Richiesta Rifiutata)
-        val titolo = "Richiesta Rifiutata ❌"
-        val corpo = "Ci dispiace, la richiesta per ${immobile.localita} non è stata accettata dall'agenzia."
+        // Recuperiamo i dati necessari per la notifica PRIMA di cancellare l'immobile
+        val proprietario = immobile.proprietario
+        val localita = immobile.localita
 
-        notificaService.inviaNotifica(immobile.proprietario, titolo, corpo)
-        firebaseService.sendNotificationToUser(immobile.proprietario, titolo, corpo) {
-            it.notifPubblicazione
-        }
-
+        // Cancellazione DB
         immobileRepository.delete(immobile)
+
+        // FIX CRITICO: Notifiche Asincrone
+        CompletableFuture.runAsync {
+            try {
+                val titolo = "Richiesta Rifiutata ❌"
+                val corpo = "Ci dispiace, la richiesta per $localita non è stata accettata dall'agenzia."
+
+                notificaService.inviaNotifica(proprietario, titolo, corpo)
+                firebaseService.sendNotificationToUser(proprietario, titolo, corpo) {
+                    it.notifPubblicazione
+                }
+            } catch (e: Exception) {
+                logger.error("Errore invio notifiche rifiuto: ${e.message}")
+            }
+        }
     }
 }

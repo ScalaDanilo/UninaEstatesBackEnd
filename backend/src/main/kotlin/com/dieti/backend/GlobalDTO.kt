@@ -539,3 +539,7 @@ data class NotificaDTO(
     val letto: Boolean
 )
 
+data class ManagerActionResponse(
+    val message: String? = null,
+    val error: String? = null
+)

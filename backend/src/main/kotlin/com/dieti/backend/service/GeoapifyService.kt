@@ -3,18 +3,19 @@ package com.dieti.backend.service
 import com.fasterxml.jackson.databind.ObjectMapper
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Service
-class GeocodingService {
+class GeoapifyService(
+    // Iniettiamo l'API Key dal file properties
+    @Value("\${geoapify.api-key}") private val apiKey: String
+) {
 
     private val client = OkHttpClient()
     private val mapper = ObjectMapper()
-
-    // API Key di Geoapify (fornita)
-    private val apiKey = "4fe4eefe40284c7ebeda92bd33614495"
 
     data class GeoResult(
         val lat: Double,
@@ -56,6 +57,7 @@ class GeocodingService {
 
             val encodedAddress = URLEncoder.encode(searchText, StandardCharsets.UTF_8.toString())
             // IMPORTANTE: Aggiunto &lang=it per avere i nomi in Italiano
+            // Usiamo la variabile apiKey iniettata
             val url = "https://api.geoapify.com/v1/geocode/search?text=$encodedAddress&apiKey=$apiKey&limit=1&lang=it"
 
             val request = Request.Builder().url(url).build()
@@ -106,6 +108,7 @@ class GeocodingService {
         try {
             val categories = "leisure.park,education.school,public_transport"
             val radius = 1000
+            // Usiamo la variabile apiKey iniettata
             val url = "https://api.geoapify.com/v2/places?categories=$categories&filter=circle:$lon,$lat,$radius&limit=20&apiKey=$apiKey"
 
             val request = Request.Builder().url(url).build()

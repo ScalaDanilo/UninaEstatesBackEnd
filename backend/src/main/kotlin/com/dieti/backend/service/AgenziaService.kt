@@ -14,7 +14,7 @@ import java.util.UUID
 class AgenziaService(
     private val agenziaRepository: AgenziaRepository,
     private val amministratoreRepository: AmministratoreRepository,
-    private val geocodingService: GeocodingService
+    private val geocodingService: GeoapifyService
 ) {
 
     @Transactional
