@@ -4,6 +4,7 @@ plugins {
     kotlin("plugin.spring") version "1.9.25"
     // CORRETTO: Spring Boot 3.2.3 (3.5.8 non esiste)
     id("org.springframework.boot") version "3.2.3"
+    id("org.sonarqube") version "7.1.0.6387"
     id("io.spring.dependency-management") version "1.1.4"
     kotlin("plugin.jpa") version "1.9.25"
 }
@@ -20,6 +21,26 @@ java {
 
 repositories {
     mavenCentral()
+}
+
+sonar {
+    properties {
+        property("sonar.projectKey", "UninaEstatesBackEnd")
+        property("sonar.projectName", "UninaEstates BackEnd")
+        property("sonar.host.url", "http://localhost:9000")
+
+        // INCOLLA QUI SOTTO IL TOKEN CHE HAI COPIATO DAL BROWSER (es. "sqp_abcd1234...")
+        property("sonar.token", "INCOLLA_QUI_IL_TUO_TOKEN")
+
+        // Configurazioni per indicare dove si trova il codice sorgente
+        property("sonar.sources", "src/main/kotlin")
+        property("sonar.tests", "src/test/kotlin")
+        property("sonar.language", "kotlin")
+        property("sonar.sourceEncoding", "UTF-8")
+
+        // Esclusioni opzionali (file che non vuoi analizzare, es. configurazioni)
+        property("sonar.exclusions", "**/*Application.kt, **/model/**, **/entity/**, **/dto/**, **/config/**")
+    }
 }
 
 dependencies {
