@@ -13,7 +13,7 @@ import com.dieti.backend.entity.UtenteRegistratoEntity
 import com.dieti.backend.repository.*
 import com.dieti.backend.service.AmministratoreService
 import com.dieti.backend.service.FirebaseNotificationService
-import com.dieti.backend.service.GeocodingService
+import com.dieti.backend.service.GeoapifyService
 import com.dieti.backend.service.GestioneImmobiliService
 import com.dieti.backend.service.ImmobileService
 import com.dieti.backend.service.NotificaService
@@ -44,7 +44,7 @@ class BackendApplicationTests {
     private val agenziaRepository: AgenziaRepository = mockk()
     private val immagineRepository: ImmagineRepository = mockk()
     private val ambienteRepository: AmbienteRepository = mockk()
-    private val geocodingService: GeocodingService = mockk()
+    private val geocodingService: GeoapifyService = mockk()
     private val firebaseService: FirebaseNotificationService = mockk()
 
 
@@ -117,7 +117,7 @@ class BackendApplicationTests {
         every { agenteRepository.findById(UUID.fromString(userId)) } returns Optional.of(agenteMock)
 
         // Mock Geocoding (Successo)
-        val coords = GeocodingService.GeoResult(40.85, 14.26, "Napoli")
+        val coords = GeoapifyService.GeoResult(40.85, 14.26, "Napoli")
         every { geocodingService.getCoordinates("Via Roma 1", "Napoli") } returns coords
 
         // Mock Salvataggio
