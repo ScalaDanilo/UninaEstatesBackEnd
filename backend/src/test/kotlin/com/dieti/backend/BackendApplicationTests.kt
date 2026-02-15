@@ -12,6 +12,7 @@ import com.dieti.backend.entity.ImmobileEntity
 import com.dieti.backend.entity.UtenteRegistratoEntity
 import com.dieti.backend.repository.*
 import com.dieti.backend.service.AmministratoreService
+import com.dieti.backend.service.FirebaseNotificationService
 import com.dieti.backend.service.GeocodingService
 import com.dieti.backend.service.GestioneImmobiliService
 import com.dieti.backend.service.ImmobileService
@@ -44,7 +45,7 @@ class BackendApplicationTests {
     private val immagineRepository: ImmagineRepository = mockk()
     private val ambienteRepository: AmbienteRepository = mockk()
     private val geocodingService: GeocodingService = mockk()
-    private val firebaseService: FirebaseService = mockk()
+    private val firebaseService: FirebaseNotificationService = mockk()
 
 
     // Dipendenze specifiche GestioneImmobili
