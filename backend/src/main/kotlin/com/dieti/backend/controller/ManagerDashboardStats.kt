@@ -27,7 +27,8 @@ class ManagerDashboardController(
             val manager = agenteRepository.findById(uuid).orElse(null)
             if (manager == null) {
                 println("DEBUG DASHBOARD: Manager (Agente) non trovato nel DB!")
-                return ResponseEntity.ok(ManagerDashboardStats(0, 0))
+                // FIX: Passiamo false se il manager non viene trovato
+                return ResponseEntity.ok(ManagerDashboardStats(0, 0, false))
             }
 
             // 2. CONTA LE OFFERTE (PROPOSTE)
@@ -57,7 +58,8 @@ class ManagerDashboardController(
 
             println("DEBUG DASHBOARD: Trovate $countOfferte offerte e $countNotifiche immobili da assegnare")
 
-            ResponseEntity.ok(ManagerDashboardStats(countNotifiche, countOfferte))
+            // FIX: Passiamo manager.isCapo al DTO per abilitare il pulsante nel frontend
+            ResponseEntity.ok(ManagerDashboardStats(countNotifiche, countOfferte, manager.isCapo))
         } catch (e: Exception) {
             e.printStackTrace()
             ResponseEntity.badRequest().build()

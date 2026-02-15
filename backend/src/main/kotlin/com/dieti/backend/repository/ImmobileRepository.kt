@@ -24,4 +24,8 @@ interface ImmobileRepository : JpaRepository<ImmobileEntity, UUID>, JpaSpecifica
     // Logica Esplicita: Prendi immobili dell'agenzia specificata CHE NON HANNO un agente (agente IS NULL)
     @Query("SELECT i FROM ImmobileEntity i WHERE i.agenzia.uuid = :agenziaId AND i.agente IS NULL")
     fun findRichiestePendentiPerAgenzia(@Param("agenziaId") agenziaId: UUID): List<ImmobileEntity>
+
+    // Trova tutti gli immobili in cui l'utente specificato figura come Agente assegnato
+    @Query("SELECT i FROM ImmobileEntity i WHERE i.agente.uuid = :agenteUuid")
+    fun findAllByAgenteUuid(@Param("agenteUuid") agenteUuid: UUID): List<ImmobileEntity>
 }

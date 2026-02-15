@@ -131,12 +131,24 @@ class ImmobileService(
         return immobili.map { it.toDto() }
     }
 
+    // Aggiunto per l'Admin che vuole vedere tutto
+    @Transactional(readOnly = true)
+    fun getAllImmobili(): List<ImmobileDTO> {
+        return immobileRepository.findAll().map { it.toDto() }
+    }
+
     // FIX: Aggiunto @Transactional(readOnly = true)
     @Transactional(readOnly = true)
     fun getImmobileById(id: String): ImmobileDTO {
         val immobile = immobileRepository.findById(UUID.fromString(id)).orElse(null)
             ?: throw EntityNotFoundException("Immobile non trovato")
         return immobile.toDto()
+    }
+
+    @Transactional(readOnly = true)
+    fun getImmobiliByAgenteId(uuid: String): List<ImmobileDTO> {
+        // Usa findAllByAgenteUuid che restituisce una lista, poi mappa in DTO
+        return immobileRepository.findAllByAgenteUuid(UUID.fromString(uuid)).map { it.toDto() }
     }
 
     private fun ImmobileCreateRequest.toEntityBase(proprietario: UtenteRegistratoEntity): ImmobileEntity {

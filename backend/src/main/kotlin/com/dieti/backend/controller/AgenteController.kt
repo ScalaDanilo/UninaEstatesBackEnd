@@ -1,5 +1,6 @@
 package com.dieti.backend.controller
 
+import com.dieti.backend.dto.CreateSubAgentRequest
 import com.dieti.backend.dto.toDTO
 import com.dieti.backend.service.AgenteService
 import org.slf4j.LoggerFactory
@@ -64,6 +65,20 @@ class AgenteController(
             ResponseEntity.ok(response)
         } catch (e: Exception) {
             ResponseEntity.badRequest().body(Collections.singletonMap("error", "Errore: ${e.message}"))
+        }
+    }
+
+    @PostMapping("/create-sub-agent")
+    fun createSubAgent(
+        @RequestBody request: CreateSubAgentRequest,
+        authentication: Authentication
+    ): ResponseEntity<*> {
+        return try {
+            val managerId = authentication.name // UUID del manager loggato
+            agenteService.creaSottoAgente(managerId, request)
+            ResponseEntity.ok("Agente creato con successo")
+        } catch (e: Exception) {
+            ResponseEntity.badRequest().body(e.message)
         }
     }
 }

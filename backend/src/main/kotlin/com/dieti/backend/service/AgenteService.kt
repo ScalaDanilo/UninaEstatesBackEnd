@@ -2,6 +2,7 @@ package com.dieti.backend.service
 
 import com.dieti.backend.dto.AgenteDTO
 import com.dieti.backend.dto.CreateAgenteRequest
+import com.dieti.backend.dto.CreateSubAgentRequest
 import com.dieti.backend.dto.ImmobileDTO
 import com.dieti.backend.dto.toDTO
 import com.dieti.backend.dto.toDto
@@ -150,5 +151,22 @@ class AgenteService(
                 logger.error("Errore invio notifiche rifiuto: ${e.message}")
             }
         }
+    }
+
+    fun creaSottoAgente(managerId: String, req: CreateSubAgentRequest) {
+        val manager = agenteRepository.findById(UUID.fromString(managerId))
+            .orElseThrow { RuntimeException("Manager non trovato") }
+
+        if (!manager.isCapo) throw RuntimeException("Non hai i permessi di Capo Agenzia")
+
+        val nuovaEntity = AgenteEntity(
+            nome = req.nome,
+            cognome = req.cognome,
+            email = req.email,
+            password = passwordEncoder.encode(req.password),
+            agenzia = manager.agenzia, // ASSEGNAZIONE AUTOMATICA
+            isCapo = false // I sotto-agenti non sono capi
+        )
+        agenteRepository.save(nuovaEntity)
     }
 }
