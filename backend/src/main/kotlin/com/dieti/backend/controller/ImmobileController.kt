@@ -18,6 +18,25 @@ class ImmobileController(
     private val immobileService: ImmobileService
 ) {
 
+    @GetMapping("/agente/{agenteId}")
+    fun getImmobiliByAgente(@PathVariable agenteId: String): ResponseEntity<List<ImmobileDTO>> {
+        return try {
+            // Chiamiamo il metodo del service che ora restituisce una lista
+            val immobili = immobileService.getImmobiliByAgenteId(agenteId)
+            ResponseEntity.ok(immobili)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // In caso di errore restituiamo 500
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+        }
+    }
+
+    // Endpoint per Admin (Tutti gli immobili)
+    @GetMapping("/all")
+    fun getAllImmobili(): ResponseEntity<List<ImmobileDTO>> {
+        return ResponseEntity.ok(immobileService.getAllImmobili())
+    }
+
     @GetMapping("/cities")
     fun getSuggestedCities(@RequestParam query: String): ResponseEntity<List<String>> {
         if (query.length < 2) return ResponseEntity.ok(emptyList())

@@ -246,30 +246,6 @@ fun UtenteRegistratoEntity.toDto(): UtenteResponseDTO {
     )
 }
 
-// --- APPUNTAMENTI ---
-
-data class AppuntamentoRequest(
-    val utenteId: String,
-    val immobileId: String,
-    val agenteId: String,
-    val data: String,
-    val orario: String
-)
-
-data class ProposalResponseRequest(
-    val accettata: Boolean
-)
-
-data class AppuntamentoDTO(
-    val id: String,
-    val utenteId: String,
-    val data: String,
-    val ora: String,
-    val stato: String,
-    val immobileId: String?,
-    val titoloImmobile: String?
-)
-
 // --- OFFERTE ---
 
 data class OffertaRequest(
@@ -490,7 +466,16 @@ data class EsitoRichiestaRequest(
 
 data class ManagerDashboardStats(
     val numeroNotifiche: Int,
-    val numeroProposte: Int
+    val numeroProposte: Int,
+    val isCapo: Boolean
+)
+
+data class CreateSubAgentRequest(
+    val nome: String,
+    val cognome: String,
+    val email: String,
+    val password: String
+    // Nota: NON c'è agenziaId, perché viene presa dal manager loggato
 )
 
 // DTO per la lista e il dettaglio rapido
