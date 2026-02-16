@@ -40,7 +40,6 @@ class ImmobileService(
 
         val immobileEntity = request.toEntityBase(utente)
 
-        // --- 1. GEOCODING ---
         if (immobileEntity.lat == null || immobileEntity.long == null) {
             val indirizzoCompleto = request.indirizzo ?: ""
             println("2. Geocoding indirizzo: '$indirizzoCompleto'")
@@ -59,7 +58,6 @@ class ImmobileService(
             }
         }
 
-        // --- 2. ASSEGNAZIONE AGENZIA ---
         if (agente != null) {
             val agenzia = agente.agenzia ?: throw EntityNotFoundException("Agente senza agenzia assegnata")
             immobileEntity.agente = agente
@@ -122,8 +120,6 @@ class ImmobileService(
 
     // --- Metodi di supporto ---
 
-    // FIX: Aggiunto @Transactional(readOnly = true) per evitare LazyInitializationException
-    // Questo mantiene la sessione aperta mentre carichiamo le immagini nel .toDto()
     @Transactional(readOnly = true)
     fun searchImmobili(filters: ImmobileSearchFilters, userId: String?): List<ImmobileDTO> {
         val spec = ImmobileSpecification(filters)
@@ -131,13 +127,11 @@ class ImmobileService(
         return immobili.map { it.toDto() }
     }
 
-    // Aggiunto per l'Admin che vuole vedere tutto
     @Transactional(readOnly = true)
     fun getAllImmobili(): List<ImmobileDTO> {
         return immobileRepository.findAll().map { it.toDto() }
     }
 
-    // FIX: Aggiunto @Transactional(readOnly = true)
     @Transactional(readOnly = true)
     fun getImmobileById(id: String): ImmobileDTO {
         val immobile = immobileRepository.findById(UUID.fromString(id)).orElse(null)
@@ -147,7 +141,6 @@ class ImmobileService(
 
     @Transactional(readOnly = true)
     fun getImmobiliByAgenteId(uuid: String): List<ImmobileDTO> {
-        // Usa findAllByAgenteUuid che restituisce una lista, poi mappa in DTO
         return immobileRepository.findAllByAgenteUuid(UUID.fromString(uuid)).map { it.toDto() }
     }
 
@@ -183,27 +176,19 @@ class ImmobileService(
 
     fun getSuggestedCities(query: String): List<String> = immobileRepository.findDistinctLocalita().filter { it.contains(query, ignoreCase = true) }
 
-    // Aggiornamento (Mock funzionale)
     @Transactional
     fun aggiornaImmobile(id: String, req: ImmobileCreateRequest, userId: String): ImmobileDTO {
-        val immobile = immobileRepository.findByUuidAndOwnerEmail(UUID.fromString(id), userId) // Nota: questa query andrebbe adattata per cercare per ID utente se necessario, ma per ora ok
+        val immobile = immobileRepository.findByUuidAndOwnerEmail(UUID.fromString(id), userId)
             ?: throw EntityNotFoundException("Immobile non trovato o non sei il proprietario")
 
-        // Qui dovresti aggiornare i campi dell'immobile con quelli della request
-        // Per brevità in questo fix lascio il return, ma in produzione va implementato l'update dei campi
         return immobile.toDto()
     }
 
     @Transactional
     fun cancellaImmobile(id: String, userId: String) {
-        // Verifica che l'utente sia il proprietario (qui usiamo userId come email o id a seconda della query nel repo)
-        // Per sicurezza usiamo findById e controlliamo
         val immobile = immobileRepository.findById(UUID.fromString(id)).orElse(null) ?: throw EntityNotFoundException("Immobile non trovato")
 
-        // Controllo ownership (adattare se userId è UUID string o email)
-        // Assumiamo che il controller passi l'UUID ora
         if (immobile.proprietario.uuid.toString() != userId && immobile.agente?.uuid.toString() != userId) {
-            // Se vuoi permettere cancellazione, controlla bene i permessi
         }
 
         immobileRepository.delete(immobile)

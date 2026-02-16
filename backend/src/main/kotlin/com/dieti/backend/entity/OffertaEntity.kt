@@ -11,12 +11,10 @@ data class OffertaEntity(
     @GeneratedValue(strategy = GenerationType.UUID)
     val uuid: UUID? = null,
 
-    // Allineato con la foto: user_offerente_id
     @ManyToOne
     @JoinColumn(name = "user_offerente_id")
     val offerente: UtenteRegistratoEntity,
 
-    // Allineato con la foto: user_venditore_id
     @ManyToOne
     @JoinColumn(name = "user_venditore_id")
     val venditore: UtenteRegistratoEntity,

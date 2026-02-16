@@ -19,7 +19,7 @@ class NotificaController(
             ResponseEntity.ok(notifiche)
         } catch (e: Exception) {
             e.printStackTrace()
-            ResponseEntity.ok(emptyList()) // Evita crash ritornando lista vuota
+            ResponseEntity.ok(emptyList())
         }
     }
 }

@@ -21,14 +21,14 @@ class NotificationSettingsController(
 
     @PostMapping("/token")
     fun updateToken(@RequestBody request: FcmTokenRequest, authentication: Authentication): ResponseEntity<Void> {
-        val userId = authentication.name // UUID
+        val userId = authentication.name
         firebaseService.updateFcmToken(userId, request.token)
         return ResponseEntity.ok().build()
     }
 
     @PutMapping("/preferences")
     fun updatePreferences(@RequestBody request: NotificationPreferencesRequest, authentication: Authentication): ResponseEntity<Void> {
-        val userId = authentication.name // UUID
+        val userId = authentication.name
         firebaseService.updatePreferences(
             userId,
             request.notifTrattative,

@@ -27,7 +27,6 @@ class GestioneImmobiliController(
         }
     }
 
-    // FIX: Restituiamo ManagerActionResponse e specifichiamo produces JSON per evitare errori di parsing
     @PostMapping(value = ["/accetta"], produces = [MediaType.APPLICATION_JSON_VALUE])
     fun accettaRichiesta(
         @RequestBody request: EsitoRichiestaRequest,
@@ -36,7 +35,6 @@ class GestioneImmobiliController(
         return try {
             gestioneImmobiliService.accettaImmobile(request.id, managerId)
 
-            // Risposta tipizzata
             ResponseEntity.ok(ManagerActionResponse(message = "Immobile preso in carico con successo"))
         } catch (e: Exception) {
             e.printStackTrace()
@@ -49,7 +47,6 @@ class GestioneImmobiliController(
         return try {
             gestioneImmobiliService.rifiutaImmobile(request.id)
 
-            // Risposta tipizzata
             ResponseEntity.ok(ManagerActionResponse(message = "Immobile rifiutato e rimosso"))
         } catch (e: Exception) {
             e.printStackTrace()

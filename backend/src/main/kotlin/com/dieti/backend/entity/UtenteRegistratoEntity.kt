@@ -19,13 +19,9 @@ class UtenteRegistratoEntity(
     var password: String? = null,
     var telefono: String? = null,
 
-    // --- NUOVI CAMPI NOTIFICHE ---
-
-    // Il token univoco del dispositivo per inviare le push
     @Column(name = "fcm_token")
     var fcmToken: String? = null,
 
-    // Preferenze utente (Default true)
     @Column(name = "notif_trattative")
     var notifTrattative: Boolean = true,
 

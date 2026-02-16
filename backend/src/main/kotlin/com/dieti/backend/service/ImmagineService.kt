@@ -11,10 +11,6 @@ class ImmagineService(
     private val immagineRepository: ImmagineRepository
 ) {
 
-    /**
-     * Recupera l'entità immagine completa (inclusi i byte) dal database.
-     * Usato dal Controller per servire il file raw al client (Android).
-     */
     @Transactional(readOnly = true)
     fun getImmagineContent(id: Int): ImmagineEntity {
         return immagineRepository.findById(id)

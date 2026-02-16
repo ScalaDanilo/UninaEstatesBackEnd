@@ -32,7 +32,6 @@ class TrattativaService(
         return mapOfferteToDTOAndSort(offerte)
     }
 
-    // Funzione helper che mappa E ORDINA la lista
     private fun mapOfferteToDTOAndSort(offerte: List<com.dieti.backend.entity.OffertaEntity>): List<TrattativaSummaryDTO> {
         val dtoList = offerte.map { off ->
             val risposte = rispostaRepository.findAllByOffertaUuidOrderByDataRispostaAsc(off.uuid!!)
@@ -70,11 +69,9 @@ class TrattativaService(
         // --- LOGICA DI ORDINAMENTO ---
         return dtoList.sortedWith(
             compareBy<TrattativaSummaryDTO> {
-                // 1. Criterio Primario: Trattative chiuse in fondo
                 val isTerminated = it.ultimoStato == "ACCETTATA" || it.ultimoStato == "RIFIUTATA"
-                isTerminated // false (Active) < true (Terminated), quindi Active appare prima
+                isTerminated
             }.thenByDescending {
-                // 2. Criterio Secondario: Data più recente in alto
                 try {
                     LocalDate.parse(it.ultimaModifica, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                 } catch (e: Exception) {

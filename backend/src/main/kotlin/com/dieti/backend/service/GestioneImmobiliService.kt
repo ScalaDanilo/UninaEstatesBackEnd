@@ -13,8 +13,8 @@ import java.util.UUID
 class GestioneImmobiliService(
     private val immobileRepository: ImmobileRepository,
     private val agenteRepository: AgenteRepository,
-    private val notificaService: NotificaService, // Service DB
-    private val firebaseService: FirebaseNotificationService // Service Push
+    private val notificaService: NotificaService,
+    private val firebaseService: FirebaseNotificationService
 ) {
 
     @Transactional(readOnly = true)

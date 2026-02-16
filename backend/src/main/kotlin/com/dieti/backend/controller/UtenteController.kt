@@ -20,15 +20,12 @@ class UtenteController(
         println(">>> CONTROLLER: Richiesto profilo per ID stringa: $id")
 
         return try {
-            // 1. Proviamo a convertire la stringa in UUID
             val uuid = UUID.fromString(id)
             println(">>> CONTROLLER: Conversione UUID riuscita: $uuid")
 
-            // 2. Chiediamo al service
             val utente = utenteService.getUtenteById(uuid)
             println(">>> CONTROLLER: Utente trovato nel Service! Nome: ${utente.nome}")
 
-            // 3. Restituiamo il DTO
             ResponseEntity.ok(utente.toDto())
 
         } catch (e: IllegalArgumentException) {

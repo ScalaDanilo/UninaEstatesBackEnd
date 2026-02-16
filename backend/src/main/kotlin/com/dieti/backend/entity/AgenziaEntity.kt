@@ -13,13 +13,9 @@ class AgenziaEntity(
     var nome: String,
     var indirizzo: String,
 
-    // --- NUOVI CAMPI PER GEOLOCALIZZAZIONE ---
     var lat: Double = 0.0,
     var long: Double = 0.0,
 
-    // FIX: Errore di mapping risolto.
-    // 1. Rinominato da 'admin' a 'amministratore' per combaciare con il 'mappedBy' dell'AmministratoreEntity.
-    // 2. Cambiato in @ManyToOne perché l'Amministratore ha una collezione (lista) di agenzie.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "amministratore_id")
     var amministratore: AmministratoreEntity? = null

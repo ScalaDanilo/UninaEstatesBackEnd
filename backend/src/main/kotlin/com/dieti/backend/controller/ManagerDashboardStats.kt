@@ -14,7 +14,7 @@ import java.util.UUID
 class ManagerDashboardController(
     private val offertaRepository: OffertaRepository,
     private val immobileRepository: ImmobileRepository,
-    private val agenteRepository: AgenteRepository // Modificato: il manager è un Agente
+    private val agenteRepository: AgenteRepository
 ) {
 
     @GetMapping("/dashboard/{agenteId}")
@@ -23,33 +23,25 @@ class ManagerDashboardController(
             val uuid = UUID.fromString(agenteId)
             println("DEBUG DASHBOARD: Calcolo statistiche per manager/agente $uuid")
 
-            // 1. Recupero il manager (che è un Agente) per conoscere la sua agenzia
             val manager = agenteRepository.findById(uuid).orElse(null)
             if (manager == null) {
                 println("DEBUG DASHBOARD: Manager (Agente) non trovato nel DB!")
-                // FIX: Passiamo false se il manager non viene trovato
                 return ResponseEntity.ok(ManagerDashboardStats(0, 0, false))
             }
 
             // 2. CONTA LE OFFERTE (PROPOSTE)
-            // Logica: Tutte le offerte degli immobili dove agente_id = id_del_manager
             val allOfferte = offertaRepository.findAll()
             val countOfferte = allOfferte.count { offerta ->
-                // Usiamo "agente" (la variabile che mappa agente_id in ImmobileEntity)
                 offerta.immobile.agente?.uuid == uuid
             }
 
             // 3. CONTA LE NOTIFICHE (APPARTAMENTI DA APPROVARE)
-            // Logica: Immobili della stessa agenzia del manager, con agente_id a NULL
             val allImmobili = immobileRepository.findAll()
             val countNotifiche = allImmobili.count { immobile ->
 
-                // Controllo su agente_id
                 val agenteRaw: Any? = immobile.agente
                 val isSenzaAgente = agenteRaw == null
 
-                // Controlla che l'agenzia dell'immobile corrisponda a quella del manager
-                // Si assume che AgenteEntity abbia un campo 'agenzia'
                 val isStessaAgenzia = immobile.agenzia?.uuid != null &&
                         immobile.agenzia?.uuid == manager.agenzia?.uuid
 
@@ -58,7 +50,6 @@ class ManagerDashboardController(
 
             println("DEBUG DASHBOARD: Trovate $countOfferte offerte e $countNotifiche immobili da assegnare")
 
-            // FIX: Passiamo manager.isCapo al DTO per abilitare il pulsante nel frontend
             ResponseEntity.ok(ManagerDashboardStats(countNotifiche, countOfferte, manager.isCapo))
         } catch (e: Exception) {
             e.printStackTrace()

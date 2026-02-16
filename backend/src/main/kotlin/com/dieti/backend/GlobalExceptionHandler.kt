@@ -19,11 +19,9 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleGeneralException(exc: Exception): ResponseEntity<String> {
-        // STAMPA L'ERRORE COMPLETO NELLA CONSOLE DEL SERVER (INTELLIJ)
         println("!!! CRASH SERVER (500) DETTAGLIATO !!!")
         exc.printStackTrace()
 
-        // Converte lo stack trace in stringa per mandarlo al client (utile in fase di sviluppo)
         val sw = StringWriter()
         exc.printStackTrace(PrintWriter(sw))
 

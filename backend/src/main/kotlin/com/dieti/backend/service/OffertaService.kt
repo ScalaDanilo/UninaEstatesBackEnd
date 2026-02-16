@@ -30,7 +30,6 @@ class OffertaService(
             throw IllegalArgumentException("Hai già inviato un'offerta per questo immobile.")
         }
 
-        // Il venditore è il proprietario dell'immobile (Utente), ma l'agente gestisce la pratica
         val venditore = immobile.proprietario
 
         if (offerente.uuid == venditore.uuid) {
@@ -56,11 +55,9 @@ class OffertaService(
             throw RuntimeException("ID Agente non valido")
         }
 
-        // Recupera le offerte assegnate a questo agente
         val offerte = offertaRepository.findOffertePendenti(uuid)
 
         return offerte.map { offerta ->
-            // Estrazione sicura dell'immagine
             val imgUrl = if (offerta.immobile.immagini.isNotEmpty()) {
                 "/api/immobili/immagini/${offerta.immobile.immagini[0].id}"
             } else {

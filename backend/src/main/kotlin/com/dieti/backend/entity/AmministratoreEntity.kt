@@ -15,7 +15,6 @@ class AmministratoreEntity(
 
     var password: String,
 
-    // Relazione: Un amministratore possiede N agenzie
     @OneToMany(mappedBy = "amministratore", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     var agenzie: MutableList<AgenziaEntity> = mutableListOf()
 )

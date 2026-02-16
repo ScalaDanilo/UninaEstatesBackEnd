@@ -17,8 +17,6 @@ data class ImmobileDTO(
     val mq: Int?,
     val descrizione: String?,
     val annoCostruzione: String?,
-
-    // Nuovi campi dettagliati aggiunti per risolvere gli errori
     val piano: Int? = null,
     val ascensore: Boolean? = null,
     val arredamento: String? = null,
@@ -29,8 +27,6 @@ data class ImmobileDTO(
 
     val immagini: List<ImmagineDto> = emptyList(),
     val ambienti: List<AmbienteDto> = emptyList(),
-
-    // Parametri Geografici e Servizi
     val lat: Double? = null,
     val long: Double? = null,
     val parco: Boolean = false,
@@ -38,11 +34,11 @@ data class ImmobileDTO(
     val servizioPubblico: Boolean = false
 )
 
-// --- DTO IMMOBILE SEMPLIFICATO (Adattato al tuo codice) ---
+// --- DTO IMMOBILE SEMPLIFICATO ---
 data class ImmobileSummaryDTO(
     val id: String,
-    val prezzo: Int?,        // Adattato a Int? come nel tuo ImmobileDTO
-    val indirizzo: String?,  // Adattato a String? come nel tuo ImmobileDTO
+    val prezzo: Int?,
+    val indirizzo: String?,
     val urlImmagine: List<ImmagineDto> // Campo calcolato utile per l'anteprima
 )
 
@@ -63,14 +59,11 @@ data class ImmobileCreateRequest(
     val prezzo: Int?,
     val speseCondominiali: Int?,
     val descrizione: String?,
-
-    // --- NUOVI CAMPI FONDAMENTALI PER L'ASSEGNAZIONE ---
     val lat: Double?,
     val long: Double?,
 
     val ambienti: List<AmbienteDto> = emptyList(),
 
-    // Servizi
     val parco: Boolean = false,
     val scuola: Boolean = false,
     val servizioPubblico: Boolean = false
@@ -88,7 +81,7 @@ data class AmbienteDto(
 
 data class ImmobileSearchFilters(
     val query: String? = null,
-    val tipoVendita: Boolean? = null, // true = vendita, false = affitto
+    val tipoVendita: Boolean? = null,
     val minPrezzo: Int? = null,
     val maxPrezzo: Int? = null,
     val minMq: Int? = null,
@@ -98,7 +91,6 @@ data class ImmobileSearchFilters(
     val bagni: Int? = null,
     val condizione: String? = null,
 
-    // CAMPI AGGIUNTI PER FIXARE L'ERRORE NEL SERVICE
     val lat: Double? = null,
     val lon: Double? = null,
     val radiusKm: Double? = null
@@ -107,7 +99,6 @@ data class ImmobileSearchFilters(
 // --- MAPPERS IMMOBILE ---
 
 fun ImmobileCreateRequest.toEntity(proprietario: UtenteRegistratoEntity): ImmobileEntity {
-    // Parsing sicuro della data
     val dataCostruzione = try {
         if (!this.annoCostruzione.isNullOrBlank()) LocalDate.parse(this.annoCostruzione) else null
     } catch (e: Exception) { null }
@@ -125,7 +116,7 @@ fun ImmobileCreateRequest.toEntity(proprietario: UtenteRegistratoEntity): Immobi
         esposizione = this.esposizione,
         statoProprieta = this.statoProprieta,
         annoCostruzione = dataCostruzione,
-        prezzo = this.prezzo, // Entity usa Double, DTO usa Int
+        prezzo = this.prezzo,
         speseCondominiali = this.speseCondominiali,
         descrizione = this.descrizione
     )
@@ -147,7 +138,6 @@ fun ImmobileEntity.toDto(): ImmobileDTO {
         ambienti = this.ambienti.map {
             AmbienteDto(it.tipologia, it.numero)
         },
-        // MAPPING CORRETTO: Entity (Inglese) -> DTO (Italiano)
         lat = this.lat,
         long = this.long,
         scuola = this.scuola,
@@ -155,16 +145,14 @@ fun ImmobileEntity.toDto(): ImmobileDTO {
         servizioPubblico = this.servizioPubblico
     )
 }
-// Funzione helper per mappare l'Entity al DTO semplificato (Preferiti)
 fun ImmobileEntity.toSummaryDto(): ImmobileSummaryDTO {
-    // Logica per estrarre l'immagine principale: URL diretto o prima immagine della lista
     val imageToUse = this.immagini.map {
         ImmagineDto(it.id?.toInt() ?: 0, "/api/immagini/${it.id}/raw")
     }
 
     return ImmobileSummaryDTO(
         id = this.uuid.toString(),
-        prezzo = this.prezzo?.toInt(), // Convertiamo Double a Int per uniformità
+        prezzo = this.prezzo?.toInt(),
         indirizzo = this.indirizzo,
         urlImmagine = imageToUse
     )
@@ -180,16 +168,14 @@ data class UtenteRegistrazioneRequest(
     val telefono: String?
 )
 
-// --- MODIFICA: Aggiunto campo 'ruolo' ---
 data class UtenteResponseDTO(
     val id: String,
     val nome: String,
     val cognome: String,
     val email: String,
     val telefono: String?,
-    val ruolo: String, // "UTENTE" o "MANAGER"
+    val ruolo: String,
 
-    // Nuovi campi preferenze
     val notifTrattative: Boolean = true,
     val notifPubblicazione: Boolean = true,
     val notifNuoviImmobili: Boolean = true,
@@ -237,7 +223,6 @@ fun UtenteRegistratoEntity.toDto(): UtenteResponseDTO {
         telefono = this.telefono,
         ruolo = "UTENTE",
 
-        // Mappiamo le preferenze dal DB
         notifTrattative = this.notifTrattative,
         notifPubblicazione = this.notifPubblicazione,
         notifNuoviImmobili = this.notifNuoviImmobili,
@@ -318,16 +303,15 @@ data class AuthResponse(
 )
 
 // --- AGENZIE E AGENTI ---
-// FIX: Aggiunto qui per risolvere "Unresolved reference"
 data class CreateAgenziaRequest(
     val nome: String,
     val indirizzo: String,
-    val adminId: String // String per facilitare il passaggio dal JSON
+    val adminId: String
 )
 
 
 
-// DTO per creare un Amministratore (semplificato)
+// DTO per creare un Amministratore
 // DTO per il cambio password
 data class ChangePasswordRequest(
     val adminId: UUID,
@@ -344,7 +328,7 @@ data class AgenteDTO(
     val isCapo: Boolean,
     val agenziaNome: String
 )
-// NUOVO: Risposta login admin
+// DTI di risposta login admin
 data class AdminLoginResponse(
     val id: String,
     val email: String,
@@ -353,8 +337,7 @@ data class AdminLoginResponse(
 
 
 
-// --- MAPPER AGENTE (Ruolo = MANAGER) ---
-// Usiamo questo per il Login, così il Frontend riceve lo stesso tipo di oggetto
+// --- MAPPER AGENTE ---
 fun AgenteEntity.toDto(): UtenteResponseDTO {
     return UtenteResponseDTO(
         id = this.uuid.toString(),
@@ -363,7 +346,6 @@ fun AgenteEntity.toDto(): UtenteResponseDTO {
         email = this.email,
         telefono = null,
         ruolo = "MANAGER",
-        // I manager per ora non hanno queste impostazioni nel DB, defaultiamo a true
         notifTrattative = true,
         notifPubblicazione = true,
         notifNuoviImmobili = true,
@@ -374,7 +356,6 @@ fun AgenteEntity.toDto(): UtenteResponseDTO {
 }
 
 // --- MAPPER SPECIFICO AGENTE ---
-// Usiamo questo per il controller specifico AgenteController (GET /api/agenti/{id})
 fun AgenteEntity.toDTO(): AgenteDTO {
     return AgenteDTO(
         id = this.uuid.toString(),
@@ -420,14 +401,13 @@ data class ChangeMyPasswordRequest(
     val newPassword: String
 )
 
-// NUOVO: DTO completo per l'Agenzia (evita il problema LazyInitialization)
+// DTO completo per l'Agenzia (evita il problema LazyInitialization)
 data class AgenziaDTO(
     val id: String,
     val nome: String,
     val indirizzo: String,
     val lat: Double,
     val long: Double,
-    // MODIFICA: Restituiamo l'ID dell'admin, più utile per riferimenti programmatici
     val adminId: String?
 )
 
@@ -437,17 +417,17 @@ data class OffertaRicevutaDTO(
     val cognomeOfferente: String,
     val prezzoOfferto: Int,
     val immobileId: String,
-    val immobileTitolo: String, // Indirizzo o Località
+    val immobileTitolo: String,
     val immobilePrezzoBase: Int,
     val immagineUrl: String?,
-    val dataOfferta: LocalDateTime // Spring Boot lo serializzerà in ISO String automaticamente
+    val dataOfferta: LocalDateTime
 )
 
 data class RispostaRequest(
     val offertaId: String,
-    val venditoreId: String, // L'agente che risponde
-    val esito: String, // "ACCETTATA", "RIFIUTATA", "CONTROPROPOSTA"
-    val nuovoPrezzo: Int? = null, // Solo se controproposta
+    val venditoreId: String,
+    val esito: String,
+    val nuovoPrezzo: Int? = null,
     val messaggio: String? = null
 )
 
@@ -456,8 +436,8 @@ data class RichiestaDTO(
     val titolo: String,
     val descrizione: String?,
     val data: String,
-    val stato: String, // "PENDING", "ACCEPTED", etc.
-    val immagineUrl: String? = null // AGGIUNTO per mostrare la foto nella lista notifiche
+    val stato: String,
+    val immagineUrl: String? = null
 )
 
 data class EsitoRichiestaRequest(
@@ -475,17 +455,16 @@ data class CreateSubAgentRequest(
     val cognome: String,
     val email: String,
     val password: String
-    // Nota: NON c'è agenziaId, perché viene presa dal manager loggato
 )
 
 // DTO per la lista e il dettaglio rapido
 data class TrattativaSummaryDTO(
     val offertaId: String,
-    val immobileId: String, // NUOVO
+    val immobileId: String,
     val immobileTitolo: String,
     val immobileIndirizzo: String?,
-    val prezzoOfferto: Int, // NUOVO
-    val nomeOfferente: String, // NUOVO
+    val prezzoOfferto: Int,
+    val nomeOfferente: String,
     val ultimoStato: String,
     val ultimaModifica: String,
     val immagineUrl: String?
@@ -520,7 +499,7 @@ data class NotificaDTO(
     val id: String,
     val titolo: String,
     val corpo: String,
-    val data: String, // O LocalDateTime se gestito dal serializer
+    val data: String,
     val letto: Boolean
 )
 

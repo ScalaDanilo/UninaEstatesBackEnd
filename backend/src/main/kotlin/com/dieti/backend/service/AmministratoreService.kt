@@ -15,7 +15,6 @@ class AmministratoreService(
     private val amministratoreRepository: AmministratoreRepository,
     private val passwordEncoder: PasswordEncoder
 ) {
-    // ... (login, creaAmministratore esistenti) ...
     @Transactional(readOnly = true)
     fun login(request: LoginRequest): AmministratoreEntity {
         val admin = amministratoreRepository.findByEmail(request.email)
@@ -30,8 +29,6 @@ class AmministratoreService(
         val admin = AmministratoreEntity(email = request.email, password = passwordEncoder.encode(request.password))
         return amministratoreRepository.save(admin)
     }
-
-    // --- NUOVI METODI ---
 
     @Transactional(readOnly = true)
     fun getAdministratorsOptions(): List<AdminOptionDTO> {

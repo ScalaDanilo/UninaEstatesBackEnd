@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets
 
 @Service
 class GeoapifyService(
-    // Iniettiamo l'API Key dal file properties
     @Value("\${geoapify.api-key}") private val apiKey: String
 ) {
 
@@ -29,11 +28,6 @@ class GeoapifyService(
         val hasPublicTransport: Boolean
     )
 
-    /**
-     * Metodo di compatibilità per AgenziaService.
-     * Accetta un singolo indirizzo stringa e restituisce Pair<Double, Double> (Lat, Lon).
-     * Usa 0.0, 0.0 come fallback in caso di errore.
-     */
     fun getCoordinates(address: String): Pair<Double, Double> {
         val result = getCoordinates(address, null)
         return if (result != null) {
@@ -43,12 +37,8 @@ class GeoapifyService(
         }
     }
 
-    /**
-     * Implementazione principale basata su Geoapify.
-     */
     fun getCoordinates(indirizzo: String, localitaInput: String?): GeoResult? {
         try {
-            // Costruiamo la query di ricerca
             val searchText = if (!localitaInput.isNullOrBlank()) {
                 "$indirizzo, $localitaInput"
             } else {
@@ -56,15 +46,12 @@ class GeoapifyService(
             }
 
             val encodedAddress = URLEncoder.encode(searchText, StandardCharsets.UTF_8.toString())
-            // IMPORTANTE: Aggiunto &lang=it per avere i nomi in Italiano
-            // Usiamo la variabile apiKey iniettata
             val url = "https://api.geoapify.com/v1/geocode/search?text=$encodedAddress&apiKey=$apiKey&limit=1&lang=it"
 
             val request = Request.Builder().url(url).build()
             client.newCall(request).execute().use { response ->
                 val bodyString = response.body?.string()
 
-                // DEBUG LOG: Vediamo cosa risponde esattamente Geoapify
                 println("DEBUG GEOAPIFY JSON: $bodyString")
 
                 if (!response.isSuccessful || bodyString == null) return null
@@ -77,7 +64,6 @@ class GeoapifyService(
                     val lat = properties.get("lat").asDouble()
                     val lon = properties.get("lon").asDouble()
 
-                    // Logica di estrazione "a cascata" per trovare il nome del posto più preciso
                     val city = when {
                         properties.has("city") && !properties.get("city").isNull -> properties.get("city").asText()
                         properties.has("town") && !properties.get("town").isNull -> properties.get("town").asText()
@@ -108,7 +94,6 @@ class GeoapifyService(
         try {
             val categories = "leisure.park,education.school,public_transport"
             val radius = 1000
-            // Usiamo la variabile apiKey iniettata
             val url = "https://api.geoapify.com/v2/places?categories=$categories&filter=circle:$lon,$lat,$radius&limit=20&apiKey=$apiKey"
 
             val request = Request.Builder().url(url).build()

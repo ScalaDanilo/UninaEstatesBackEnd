@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/auth")
 class AuthController(private val authService: AuthService) {
 
-    // Registrazione (Lasciamo semplice)
+    // Registrazione
     @PostMapping("/register")
     fun register(@RequestBody request: UtenteRegistrazioneRequest): ResponseEntity<Any> {
         return try {
@@ -22,22 +22,19 @@ class AuthController(private val authService: AuthService) {
         }
     }
 
-    // Login (Gestito con Try-Catch per evitare il 500)
+    // Login
     @PostMapping("/login")
     fun login(@RequestBody request: LoginRequest): ResponseEntity<Any> {
         return try {
-            println("Tentativo login per: ${request.email}") // Debug Log
+            println("Tentativo login per: ${request.email}")
 
             val utenteLoggato = authService.login(request)
 
-            // Se arrivo qui, è andato tutto bene
             ResponseEntity.ok(utenteLoggato)
 
         } catch (e: RuntimeException) {
-            // Se AuthService lancia "Password errata" o "Utente non trovato"
-            println("Errore Login: ${e.message}") // Debug Log
+            println("Errore Login: ${e.message}")
 
-            // Restituisco 401 Unauthorized invece di 500
             ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenziali non valide: ${e.message}")
         }
     }

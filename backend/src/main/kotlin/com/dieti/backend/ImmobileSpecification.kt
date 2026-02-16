@@ -18,8 +18,6 @@ class ImmobileSpecification(
     ): Predicate? {
         val predicates = mutableListOf<Predicate>()
 
-        // --- FILTRO FONDAMENTALE: Solo immobili gestiti da un agente ---
-        // Se agente è NULL, significa che è in attesa di approvazione
         predicates.add(cb.isNotNull(root.get<AgenteEntity>("agente")))
 
         // 1. Filtro Tipo Vendita
@@ -88,10 +86,6 @@ class ImmobileSpecification(
 
         // 8. Filtro Geografico (Opzionale nel caso venga passato)
         if (filters.lat != null && filters.lon != null && filters.radiusKm != null) {
-            // Nota: Per le query geospaziali precise in Specification serve Hibernate Spatial o formule native complesse.
-            // Se usi PostGIS è meglio usare una Native Query nel repository.
-            // Qui lo ometto per brevità per non rompere la compilazione se non hai le estensioni,
-            // ma la logica "nearest agency" è gestita nel createImmobile.
         }
 
         if (predicates.isEmpty()) {

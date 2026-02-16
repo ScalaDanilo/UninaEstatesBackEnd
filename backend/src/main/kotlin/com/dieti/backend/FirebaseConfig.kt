@@ -14,7 +14,6 @@ class FirebaseConfig {
     @PostConstruct
     fun initialize() {
         try {
-            // Controlla se esiste già un'app inizializzata per evitare doppi avvii
             if (FirebaseApp.getApps().isEmpty()) {
                 val serviceAccount = ClassPathResource("firebase-service-account.json").inputStream
 

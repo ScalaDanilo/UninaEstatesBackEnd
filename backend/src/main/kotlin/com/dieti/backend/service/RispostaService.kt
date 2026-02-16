@@ -51,7 +51,6 @@ class RispostaService(
         val saved = rispostaRepository.save(risposta)
         logger.info(">>> [DEBUG NOTIFICHE] Risposta salvata su DB.")
 
-        // Logica testo notifica
         val (titolo, corpo) = when (request.esito) {
             "ACCETTATA" -> "Offerta Accettata! 🎉" to "Complimenti! La tua offerta per ${offerta.immobile.localita} è stata accettata."
             "RIFIUTATA" -> "Offerta Rifiutata ✋" to "La tua proposta per ${offerta.immobile.localita} non è stata accettata."
@@ -59,16 +58,13 @@ class RispostaService(
             else -> "Aggiornamento Trattativa" to "Nuovo messaggio dall'agente."
         }
 
-        // 1. Notifica DB (Persistenza)
         notificaService.inviaNotifica(offerta.offerente, titolo, corpo, "TRATTATIVA")
         logger.info(">>> [DEBUG NOTIFICHE] Notifica salvata nella tabella 'Notifica'.")
 
-        // 2. Notifica Push (Immediata)
         val destinatario = offerta.offerente
         logger.info(">>> [DEBUG NOTIFICHE] Preparazione Push per utente: ${destinatario.email}")
         logger.info(">>> [DEBUG NOTIFICHE] Stato Utente -> Ha Token: ${!destinatario.fcmToken.isNullOrBlank()}, Pref. Trattative: ${destinatario.notifTrattative}")
 
-        // Controlla la preferenza 'notifTrattative' dell'utente
         firebaseService.sendNotificationToUser(destinatario, titolo, corpo) {
             val shouldSend = it.notifTrattative
             if (!shouldSend) logger.warn(">>> [DEBUG NOTIFICHE] SKIP PUSH: L'utente ha disabilitato le notifiche trattative.")
@@ -98,8 +94,6 @@ class RispostaService(
             corpo = request.messaggio
         )
 
-        // Nota: Se volessi notificare l'agente (Manager), dovresti avere il token FCM dell'agente.
-        // Attualmente il sistema notifica solo gli Utenti finali.
         logger.info(">>> [DEBUG NOTIFICHE] Risposta utente salvata. Nessuna push inviata all'agente (by design).")
 
         return rispostaRepository.save(risposta)

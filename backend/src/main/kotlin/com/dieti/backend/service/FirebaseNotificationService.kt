@@ -25,7 +25,6 @@ class FirebaseNotificationService(
 
     private val logger = LoggerFactory.getLogger(FirebaseNotificationService::class.java)
 
-    // Aggiorna il token quando l'utente fa login da app
     @Transactional
     fun updateFcmToken(userId: String, token: String) {
         val utente = utenteRepository.findById(UUID.fromString(userId)).orElse(null)
@@ -55,7 +54,6 @@ class FirebaseNotificationService(
                 val inputStream = this::class.java.classLoader.getResourceAsStream("firebase-service-account.json")
                     ?: throw RuntimeException("File firebase-service-account.json non trovato nel classpath")
 
-                // Usiamo ServiceAccountCredentials per estrarre l'ID del progetto
                 val credentials = ServiceAccountCredentials.fromStream(inputStream)
 
                 val options = FirebaseOptions.builder()
@@ -74,7 +72,6 @@ class FirebaseNotificationService(
     }
 
     fun sendNotificationToUser(utente: UtenteRegistratoEntity, title: String, body: String, checkPreference: (UtenteRegistratoEntity) -> Boolean) {
-        // --- LOGICA DI DEBUG AVANZATA ---
         if (utente.fcmToken.isNullOrBlank()) {
             logger.warn(">>> ABORT PUSH: L'utente ${utente.email} NON ha un token FCM salvato nel database.")
             return
@@ -84,7 +81,6 @@ class FirebaseNotificationService(
             logger.warn(">>> ABORT PUSH: L'utente ${utente.email} ha le notifiche DISABILITATE per questa categoria.")
             return
         }
-        // -------------------------------
 
         ensureFirebaseInitialized()
 
@@ -94,7 +90,6 @@ class FirebaseNotificationService(
         }
 
         logger.info(">>> TENTATIVO INVIO PUSH a: ${utente.email}")
-        // Stampiamo il token completo per debug se necessario, o parziale per sicurezza
         logger.debug(">>> TOKEN TARGET: ${utente.fcmToken}")
 
         try {

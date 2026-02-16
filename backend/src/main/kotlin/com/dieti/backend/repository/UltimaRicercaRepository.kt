@@ -6,9 +6,7 @@ import java.util.UUID
 
 interface UltimaRicercaRepository : JpaRepository<UltimaRicercaEntity, UUID> {
 
-    // Trova le ricerche ordinandole per data (dalla più recente)
     fun findAllByUtenteRegistratoEmailOrderByDataDesc(email: String): List<UltimaRicercaEntity>
 
-    // Trova una specifica ricerca per cancellarla
     fun findByUtenteRegistratoEmailAndCorpoIgnoreCase(email: String, corpo: String): UltimaRicercaEntity?
 }

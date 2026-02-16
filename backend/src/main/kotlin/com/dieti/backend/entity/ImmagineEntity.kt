@@ -16,9 +16,6 @@ class ImmagineEntity(
     var nome: String? = null,
     var formato: String? = null,
 
-    // FIX: Rimosso @Lob.
-    // @Lob in Postgres mappa su OID (numero intero/BigInt), causando l'errore di tipo.
-    // Usando columnDefinition = "bytea", forziamo il salvataggio dei byte grezzi.
     @Column(name = "immagine", columnDefinition = "bytea")
     var immagine: ByteArray? = null
 ) {

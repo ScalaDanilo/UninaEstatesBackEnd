@@ -29,7 +29,6 @@ class AgenteService(
 ) {
     private val logger = LoggerFactory.getLogger(AgenteService::class.java)
 
-    // ... (metodi creaAgente, getAgenteById, getAllAgenti, getRichiestePendenti rimangono uguali) ...
     @Transactional
     fun creaAgente(request: CreateAgenteRequest): AgenteDTO {
         val agenziaUUID = UUID.fromString(request.agenziaId)
@@ -72,7 +71,6 @@ class AgenteService(
         return immobili.map { it.toDto() }
     }
 
-    // --- ACCETTA INCARICO + NOTIFICHE ASINCRONE ---
     @Transactional
     fun accettaIncarico(agenteEmail: String, immobileId: String) {
         val agente = agenteRepository.findByEmail(agenteEmail)
@@ -86,27 +84,20 @@ class AgenteService(
             throw RuntimeException("Questo immobile non appartiene alla tua agenzia")
         }
 
-        // Assegna l'agente all'immobile
         immobile.agente = agente
         val saved = immobileRepository.save(immobile)
 
-        // FIX CRITICO: Eseguiamo le chiamate esterne (Firebase) in un thread separato
-        // per evitare che il client Android vada in timeout aspettando la risposta HTTP.
         CompletableFuture.runAsync {
             try {
-                // 1. NOTIFICA AL PROPRIETARIO (Richiesta Accettata)
                 val titoloOwner = "Immobile Pubblicato! 🏠"
                 val corpoOwner = "Il tuo immobile in ${saved.localita} è stato accettato e pubblicato dall'agente ${agente.nome}."
 
-                // Salvataggio su DB (meglio farlo qui o tenerlo sincrono se veloce, ma qui va bene)
                 notificaService.inviaNotifica(saved.proprietario, titoloOwner, corpoOwner, "SISTEMA")
 
-                // Push Notification (Lenta)
                 firebaseService.sendNotificationToUser(saved.proprietario, titoloOwner, corpoOwner) {
                     it.notifPubblicazione
                 }
 
-                // 2. NOTIFICA AGLI UTENTI INTERESSATI
                 if (!saved.localita.isNullOrBlank()) {
                     val indirizzoCompleto = if(saved.indirizzo.isNullOrBlank()) saved.localita!! else "${saved.localita}, ${saved.indirizzo}"
                     firebaseService.notifyUsersForNewProperty(saved.localita!!, indirizzoCompleto)
@@ -117,7 +108,6 @@ class AgenteService(
         }
     }
 
-    // --- RIFIUTA INCARICO + NOTIFICHE ASINCRONE ---
     @Transactional
     fun rifiutaIncarico(agenteEmail: String, immobileId: String) {
         val agente = agenteRepository.findByEmail(agenteEmail)
@@ -130,14 +120,11 @@ class AgenteService(
             throw RuntimeException("Questo immobile non appartiene alla tua agenzia")
         }
 
-        // Recuperiamo i dati necessari per la notifica PRIMA di cancellare l'immobile
         val proprietario = immobile.proprietario
         val localita = immobile.localita
 
-        // Cancellazione DB
         immobileRepository.delete(immobile)
 
-        // FIX CRITICO: Notifiche Asincrone
         CompletableFuture.runAsync {
             try {
                 val titolo = "Richiesta Rifiutata ❌"
@@ -164,8 +151,8 @@ class AgenteService(
             cognome = req.cognome,
             email = req.email,
             password = passwordEncoder.encode(req.password),
-            agenzia = manager.agenzia, // ASSEGNAZIONE AUTOMATICA
-            isCapo = false // I sotto-agenti non sono capi
+            agenzia = manager.agenzia,
+            isCapo = false
         )
         agenteRepository.save(nuovaEntity)
     }

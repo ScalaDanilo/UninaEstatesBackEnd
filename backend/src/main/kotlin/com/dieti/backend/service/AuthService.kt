@@ -37,12 +37,11 @@ class AuthService(
     fun login(request: LoginRequest): UtenteResponseDTO {
         println("DEBUG LOGIN: Cerco utente ${request.email} in tutte le tabelle...")
 
-        // 1. CONTROLLO ADMIN
         val admin = amministratoreRepository.findByEmail(request.email)
         if (admin != null) {
             if (passwordEncoder.matches(request.password, admin.password)) {
                 return UtenteResponseDTO(
-                    id = admin.uuid.toString(), // Questo ID sarà il token
+                    id = admin.uuid.toString(),
                     nome = "Amministratore",
                     cognome = "Sistema",
                     email = admin.email,
@@ -54,7 +53,6 @@ class AuthService(
             } else throw RuntimeException("Password errata (Admin)")
         }
 
-        // 2. CONTROLLO AGENTE (MANAGER)
         val agente = agenteRepository.findByEmail(request.email)
         if (agente != null) {
             if (passwordEncoder.matches(request.password, agente.password)) {
@@ -62,7 +60,6 @@ class AuthService(
             } else throw RuntimeException("Password errata (Agente)")
         }
 
-        // 3. CONTROLLO UTENTE
         val utente = utenteRepository.findByEmail(request.email)
         if (utente != null) {
             if (passwordEncoder.matches(request.password, utente.password)) {

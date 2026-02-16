@@ -31,7 +31,6 @@ class SecurityConfig(
                 auth.requestMatchers("/auth/**", "/error").permitAll()
                 auth.requestMatchers("/api/immagini/**").permitAll()
 
-                // *** FIX: Rendiamo pubblico il login dell'admin ***
                 auth.requestMatchers("/api/admin/login").permitAll()
 
                 // Tutti gli altri endpoint richiedono autenticazione

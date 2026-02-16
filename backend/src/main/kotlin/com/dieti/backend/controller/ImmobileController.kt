@@ -21,12 +21,10 @@ class ImmobileController(
     @GetMapping("/agente/{agenteId}")
     fun getImmobiliByAgente(@PathVariable agenteId: String): ResponseEntity<List<ImmobileDTO>> {
         return try {
-            // Chiamiamo il metodo del service che ora restituisce una lista
             val immobili = immobileService.getImmobiliByAgenteId(agenteId)
             ResponseEntity.ok(immobili)
         } catch (e: Exception) {
             e.printStackTrace()
-            // In caso di errore restituiamo 500
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
         }
     }
@@ -51,7 +49,6 @@ class ImmobileController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            // FIX: authentication.name ora contiene l'UUID (non l'email)
             val userId = authentication.name
             val nuovoImmobile = immobileService.creaImmobile(immobileRequest, immagini, userId)
             ResponseEntity.status(HttpStatus.CREATED).body(nuovoImmobile)

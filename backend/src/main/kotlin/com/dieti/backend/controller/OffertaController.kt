@@ -28,12 +28,10 @@ class OffertaController(
     @GetMapping("/pendenti/{agenteId}")
     fun getOffertePendenti(@PathVariable agenteId: String): ResponseEntity<List<OffertaRicevutaDTO>> {
         return try {
-            // Recupera solo le offerte che non hanno ancora avuto risposta
             val offerte = offertaService.getOffertePendentiPerAgente(agenteId)
             ResponseEntity.ok(offerte)
         } catch (e: Exception) {
             e.printStackTrace()
-            // In caso di errore restituiamo lista vuota per non bloccare la UI
             ResponseEntity.ok(emptyList())
         }
     }

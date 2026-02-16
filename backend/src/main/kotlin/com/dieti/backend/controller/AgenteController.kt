@@ -47,7 +47,6 @@ class AgenteController(
         return try {
             val email = authentication.name
             agenteService.accettaIncarico(email, id)
-            // MODIFICA: Restituiamo una mappa (JSON) invece di una stringa semplice
             val response = Collections.singletonMap("message", "Incarico accettato con successo")
             ResponseEntity.ok(response)
         } catch (e: Exception) {
@@ -60,7 +59,6 @@ class AgenteController(
         return try {
             val email = authentication.name
             agenteService.rifiutaIncarico(email, id)
-            // MODIFICA: Restituiamo una mappa (JSON)
             val response = Collections.singletonMap("message", "Incarico rifiutato e immobile rimosso")
             ResponseEntity.ok(response)
         } catch (e: Exception) {
@@ -74,7 +72,7 @@ class AgenteController(
         authentication: Authentication
     ): ResponseEntity<*> {
         return try {
-            val managerId = authentication.name // UUID del manager loggato
+            val managerId = authentication.name
             agenteService.creaSottoAgente(managerId, request)
             ResponseEntity.ok("Agente creato con successo")
         } catch (e: Exception) {

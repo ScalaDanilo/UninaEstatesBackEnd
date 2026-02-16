@@ -28,7 +28,7 @@ class TrattativaController(
         }
     }
 
-    // NUOVO ENDPOINT PER IL MANAGER
+    // ENDPOINT PER IL MANAGER
     @GetMapping("/manager/{agenteId}")
     fun getTrattativeManager(@PathVariable agenteId: String): ResponseEntity<List<TrattativaSummaryDTO>> {
         return try {

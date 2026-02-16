@@ -19,7 +19,6 @@ class ImmagineController(private val immagineService: ImmagineService) {
         val immagine = immagineService.getImmagineContent(id)
 
         val headers = HttpHeaders()
-        // Imposta il content type corretto (jpeg, png, etc.) o defaulta a jpeg
         headers.contentType = MediaType.parseMediaType(immagine.formato ?: "image/jpeg")
         headers.contentLength = immagine.immagine?.size?.toLong() ?: 0
 

@@ -30,7 +30,6 @@ class NotificaService(private val notificaRepository: NotificaRepository) {
         val notifiche = notificaRepository.findByUtenteUuidOrderByDataCreazioneDesc(uuid)
         val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 
-        // Filtra via le notifiche di tipo TRATTATIVA (perché vanno nell'altra schermata)
         return notifiche
             .filter { it.tipo != "TRATTATIVA" }
             .map { entity ->

@@ -8,6 +8,5 @@ import java.util.UUID
 @Repository
 interface RispostaRepository : JpaRepository<RispostaEntity, Int> {
 
-    // Trova lo storico della chat per una specifica offerta
     fun findAllByOffertaUuidOrderByDataRispostaAsc(offertaId: UUID): List<RispostaEntity>
 }

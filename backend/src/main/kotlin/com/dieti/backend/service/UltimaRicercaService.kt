@@ -14,7 +14,7 @@ class UltimaRicercaService(
     private val utenteRepository: UtenteRepository
 ) {
 
-    // --- SALVATAGGIO (Già esistente, con Transactional separata) ---
+    // --- SALVATAGGIO  ---
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun salvaRicerca(query: String, emailUtente: String) {
         if (query.isBlank()) return
@@ -23,7 +23,6 @@ class UltimaRicercaService(
             val utente = utenteRepository.findByEmail(emailUtente) ?: return
             val ricercheEsistenti = ultimaRicercaRepository.findAllByUtenteRegistratoEmailOrderByDataDesc(emailUtente)
 
-            // Se esiste già, aggiorna la data
             val ricercaEsistente = ricercheEsistenti.find { it.corpo.equals(query, ignoreCase = true) }
             if (ricercaEsistente != null) {
                 ricercaEsistente.data = LocalDate.now()
@@ -31,13 +30,11 @@ class UltimaRicercaService(
                 return
             }
 
-            // Se superiamo il limite di 10, elimina la più vecchia
             if (ricercheEsistenti.size >= 10) {
-                val daEliminare = ricercheEsistenti.last() // Essendo ordinata DESC, l'ultima è la più vecchia
+                val daEliminare = ricercheEsistenti.last()
                 ultimaRicercaRepository.delete(daEliminare)
             }
 
-            // Salva nuova
             val nuovaRicerca = UltimaRicercaEntity(
                 corpo = query,
                 data = LocalDate.now(),

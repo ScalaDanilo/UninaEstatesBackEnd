@@ -65,7 +65,6 @@ class SimpleAuthFilter(
                 println("DEBUG FILTER: Token non valido (non è un UUID): $token")
             }
         } else {
-            // println("DEBUG FILTER: Header Authorization mancante o formato errato")
         }
 
         filterChain.doFilter(request, response)
@@ -74,7 +73,7 @@ class SimpleAuthFilter(
     private fun setAuthentication(principalId: String, role: String) {
         println("DEBUG FILTER: Autenticazione OK. ID: $principalId, Ruolo: $role")
         val auth = UsernamePasswordAuthenticationToken(
-            principalId, // IMPORTANTISSIMO: Il principal ora è l'ID
+            principalId,
             null,
             listOf(SimpleGrantedAuthority(role))
         )

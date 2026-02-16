@@ -13,7 +13,7 @@ class RedisGeoService(
     private val redisTemplate: StringRedisTemplate
 ) {
     private val KEY_IMMOBILI_GEO = "immobili:geo"
-    private val KEY_CITIES = "immobili:cities" // Set per i nomi dei comuni
+    private val KEY_CITIES = "immobili:cities"
 
     // --- GEOSPAZIALE (Mappa) ---
 
@@ -25,11 +25,6 @@ class RedisGeoService(
         }
     }
 
-    /**
-     * METODO AGGIUNTO
-     * Rimuove un immobile dall'indice geospaziale.
-     * I dati Geo in Redis sono implementati come ZSet, quindi usiamo ZRem.
-     */
     fun removeLocation(immobileId: String) {
         try {
             redisTemplate.opsForZSet().remove(KEY_IMMOBILI_GEO, immobileId)
@@ -56,7 +51,6 @@ class RedisGeoService(
 
     fun addCity(city: String) {
         try {
-            // Aggiungiamo il comune al Set (gestisce automaticamente i duplicati essendo un SET)
             redisTemplate.opsForSet().add(KEY_CITIES, city)
         } catch (e: Exception) {
             println("Errore Redis Add City: ${e.message}")
@@ -65,10 +59,8 @@ class RedisGeoService(
 
     fun searchCities(query: String): List<String> {
         return try {
-            // Recuperiamo tutti i comuni (il dataset è piccolo, max 8k comuni in Italia, Redis è istantaneo)
             val allCities = redisTemplate.opsForSet().members(KEY_CITIES) ?: emptySet()
 
-            // Filtriamo in memoria (molto veloce per liste di stringhe semplici)
             allCities.filter { it.contains(query, ignoreCase = true) }
                 .sorted()
                 .take(10) // Limitiamo a 10 suggerimenti per la UI

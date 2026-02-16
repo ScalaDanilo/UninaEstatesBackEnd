@@ -36,7 +36,6 @@ class AgenziaService(
 
         val saved = agenziaRepository.save(agenzia)
 
-        // FIX: Restituiamo il DTO con l'ID dell'admin
         return AgenziaDTO(
             id = saved.uuid.toString(),
             nome = saved.nome,

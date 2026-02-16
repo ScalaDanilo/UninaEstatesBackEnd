@@ -19,11 +19,9 @@ class AgenteEntity(
 
     var password: String,
 
-    // Flag booleano per il ruolo (Capo Agenzia vs Agente Semplice)
     @Column(name = "is_capo")
     var isCapo: Boolean = false,
 
-    // Relazione: Ogni agente appartiene a 1 agenzia
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "agenzia_id", nullable = false)
     @JsonIgnore

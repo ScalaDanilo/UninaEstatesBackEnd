@@ -56,7 +56,6 @@ class AmministratoreController(
     @PostMapping("/create-agency")
     fun createAgency(@RequestBody request: CreateAgenziaRequest): ResponseEntity<*> {
         return try {
-            // Ora questo chiama correttamente il metodo implementato in AgenziaService
             val agenzia = agenziaService.creaAgenzia(request)
             ResponseEntity.ok(agenzia)
         } catch (e: Exception) { ResponseEntity.badRequest().body(e.message) }
@@ -64,7 +63,6 @@ class AmministratoreController(
 
     @GetMapping("/agencies-options")
     fun getAgenciesOptions(): ResponseEntity<List<AgenziaOptionDTO>> {
-        // Ora questo chiama correttamente il metodo implementato in AgenziaService
         return ResponseEntity.ok(agenziaService.getAgenzieOptionsForAdmin())
     }
 
